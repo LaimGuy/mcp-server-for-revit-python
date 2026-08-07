@@ -12,6 +12,8 @@ from pyrevit import routes, revit, DB
 import json
 import logging
 
+from .utils import normalize_string
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,8 +27,6 @@ def _id_value(some_id):
 
 
 def _safe_name(text):
-    from revit_mcp.utils import normalize_string
-
     return normalize_string(text)
 
 

@@ -45,6 +45,12 @@ def register_routes():
 
         register_document_routes(api)
 
+        # --- Local additions (keep below upstream registrations) ---
+        from revit_mcp.worksharing import register_worksharing_routes
+
+        register_worksharing_routes(api)
+        # --- End local additions ---
+
         logger.info("All MCP routes registered successfully")
 
     except Exception as e:

@@ -14,6 +14,11 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
     from .launch_tools import register_launch_tools
     from .document_tools import register_document_tools
 
+    # --- Local additions (keep below upstream imports) ---
+    from .worksharing_tools import register_worksharing_tools
+
+    # --- End local additions ---
+
     # Register tools from each module
     register_status_tools(mcp_server, revit_get_func)
     register_view_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func)
@@ -25,3 +30,7 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
     )
     register_launch_tools(mcp_server, revit_get_func)
     register_document_tools(mcp_server, revit_get_func, revit_post_func)
+
+    # --- Local additions (keep below upstream registrations) ---
+    register_worksharing_tools(mcp_server, revit_get_func, revit_post_func)
+    # --- End local additions ---

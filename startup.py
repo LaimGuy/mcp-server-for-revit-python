@@ -49,6 +49,36 @@ def register_routes():
         from revit_mcp.worksharing import register_worksharing_routes
 
         register_worksharing_routes(api)
+
+        # Merged from Demolinator/revit-mcp-server (MIT)
+        from revit_mcp.view_management import register_view_management_routes
+        from revit_mcp.documentation import register_documentation_routes
+        from revit_mcp.annotation import register_annotation_routes
+        from revit_mcp.tags import register_tag_routes
+        from revit_mcp.detail import register_detail_routes
+        from revit_mcp.editing import register_editing_routes
+        from revit_mcp.transforms import register_transform_routes
+        from revit_mcp.parameters import register_parameter_routes
+        from revit_mcp.analysis import register_analysis_routes
+        from revit_mcp.clash import register_clash_routes
+        from revit_mcp.interop import register_interop_routes
+
+        register_view_management_routes(api)
+        register_documentation_routes(api)
+        register_annotation_routes(api)
+        register_tag_routes(api)
+        register_detail_routes(api)
+        register_editing_routes(api)
+        register_transform_routes(api)
+        register_parameter_routes(api)
+        register_analysis_routes(api)
+        register_clash_routes(api)
+        register_interop_routes(api)
+
+        # Merged from ahmedmgamal/mcp-server-for-revit-python-mep (MIT)
+        from revit_mcp.mep import register_mep_routes
+
+        register_mep_routes(api)
         # --- End local additions ---
 
         logger.info("All MCP routes registered successfully")

@@ -17,6 +17,22 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
     # --- Local additions (keep below upstream imports) ---
     from .worksharing_tools import register_worksharing_tools
 
+    # Merged from Demolinator/revit-mcp-server (MIT)
+    from .view_management_tools import register_view_management_tools
+    from .documentation_tools import register_documentation_tools
+    from .annotation_tools import register_annotation_tools
+    from .tag_tools import register_tag_tools
+    from .detail_tools import register_detail_tools
+    from .editing_tools import register_editing_tools
+    from .transform_tools import register_transform_tools
+    from .parameter_tools import register_parameter_tools
+    from .analysis_tools import register_analysis_tools
+    from .clash_tools import register_clash_tools
+    from .interop_tools import register_interop_tools
+
+    # Merged from ahmedmgamal/mcp-server-for-revit-python-mep (MIT)
+    from .mep_tools import register_mep_tools
+
     # --- End local additions ---
 
     # Register tools from each module
@@ -33,4 +49,20 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
 
     # --- Local additions (keep below upstream registrations) ---
     register_worksharing_tools(mcp_server, revit_get_func, revit_post_func)
+
+    # Merged from Demolinator/revit-mcp-server (MIT)
+    register_view_management_tools(mcp_server, revit_get_func, revit_post_func)
+    register_documentation_tools(mcp_server, revit_get_func, revit_post_func)
+    register_annotation_tools(mcp_server, revit_get_func, revit_post_func)
+    register_tag_tools(mcp_server, revit_get_func, revit_post_func)
+    register_detail_tools(mcp_server, revit_get_func, revit_post_func)
+    register_editing_tools(mcp_server, revit_get_func, revit_post_func)
+    register_transform_tools(mcp_server, revit_get_func, revit_post_func)
+    register_parameter_tools(mcp_server, revit_get_func, revit_post_func)
+    register_analysis_tools(mcp_server, revit_get_func, revit_post_func)
+    register_clash_tools(mcp_server, revit_get_func, revit_post_func)
+    register_interop_tools(mcp_server, revit_get_func, revit_post_func)
+
+    # Merged from ahmedmgamal/mcp-server-for-revit-python-mep (MIT)
+    register_mep_tools(mcp_server, revit_get_func, revit_post_func)
     # --- End local additions ---

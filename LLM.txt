@@ -554,6 +554,13 @@ The current implementation provides these tools organized by category:
   - No categories given = default physical scope (arch + structural + MEP) checked against itself
   - This is the broad tool; see check_mep_clashes above for the two-category MEP variant
 
+### **Hanger & Support Tools**
+- **tag_hangers**: Tag hangers (or any point-locatable category) in a view with non-overlapping tags and non-crossing leaders; searches 16 directions x 16 radii for the shortest clean leader, optionally avoiding categories like piping/insulation
+  - Parameters: view_name, hanger_category, tag_family_category, avoid_categories, retag_existing, tag_margin, obstacle_margin
+- **name_supports**: Name every unnamed element of a category via a configurable pattern ({PREFIX}-{LEVEL}-{NNN} by default); sequences run per (prefix, level) group, continue from the highest existing number, and follow a nearest-neighbour walk so numbers track the physical run
+  - Parameters: category (required), name_param, pattern, prefix, prefix_map, pad, skip_family_keywords, dry_run
+  - Deliberately convention-free: office naming standards travel in the request, not the code
+
 ### **Interop Tools**
 - **export_ifc**: Export the model (optionally one view) to IFC
   - Parameters: file_path, ifc_version ("IFC2x3"/"IFC4"), export_base_quantities, view_name
@@ -635,6 +642,10 @@ The pyRevit extension exposes these HTTP endpoints under `http://localhost:48884
 - `GET /room_data/` - Export data for all placed rooms
 - `POST /material_quantities/` - Material takeoff by category
 - `GET /model_statistics/` - Element counts by category
+
+### **Hanger & Support Endpoints**
+- `POST /tag_hangers/` - Tag hangers with non-overlapping tags and non-crossing leaders
+- `POST /name_supports/` - Pattern-driven naming of unnamed elements in a category
 
 ### **Clash & Interop Endpoints**
 - `POST /clash_check/` - General clash detection between two category sets (note: /check_clashes/ is the MEP two-category variant)

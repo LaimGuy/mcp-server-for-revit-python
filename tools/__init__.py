@@ -33,6 +33,9 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
     # Merged from ahmedmgamal/mcp-server-for-revit-python-mep (MIT)
     from .mep_tools import register_mep_tools
 
+    # Hanger tagging (csamp05, MIT) + generic support naming (ours)
+    from .hanger_tools import register_hanger_tools
+
     # --- End local additions ---
 
     # Register tools from each module
@@ -65,4 +68,7 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
 
     # Merged from ahmedmgamal/mcp-server-for-revit-python-mep (MIT)
     register_mep_tools(mcp_server, revit_get_func, revit_post_func)
+
+    # Hanger tagging (csamp05, MIT) + generic support naming (ours)
+    register_hanger_tools(mcp_server, revit_get_func, revit_post_func)
     # --- End local additions ---

@@ -79,6 +79,14 @@ def register_routes():
         from revit_mcp.mep import register_mep_routes
 
         register_mep_routes(api)
+
+        # Hanger tagging engine from csamp05 fork (MIT); naming is our own
+        # generic pattern-driven rewrite of their convention-bound module
+        from revit_mcp.hangers import register_hanger_routes
+        from revit_mcp.support_naming import register_support_naming_routes
+
+        register_hanger_routes(api)
+        register_support_naming_routes(api)
         # --- End local additions ---
 
         logger.info("All MCP routes registered successfully")

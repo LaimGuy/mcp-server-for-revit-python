@@ -27,7 +27,8 @@ revit-mcp-python/
 │   ├── view_tools.py                         # View export and image tools
 │   ├── family_tools.py                       # Family placement and management tools
 │   ├── colors_tools.py                       # Color splashing tools
-│   └── code_execution_tools.py               # Code execution tools
+│   ├── code_execution_tools.py               # Code execution tools
+│   └── mep_tools.py                          # MEP tools (piping, ducts, cable trays, conduits, systems)
 ├── revit-mcp-python.extension/               # pyRevit Extension
 │   ├── startup.py                            # Extension entry point - registers all routes
 │   └── revit_mcp/                            # Routes API modules (organized by functionality)
@@ -39,6 +40,7 @@ revit-mcp-python/
 │       └── utils.py                          # Utility functions for IronPython compatibility
 │       └── colors.py                         # Color splashing endpoints
 │       └── code_execution.py                 # Code execution endpoints
+│       └── mep.py                            # MEP endpoints (piping, ducts, cable trays, conduits, systems)
 ├── requirements.txt                          # Python dependencies
 ├── pyproject.toml                           # Project configuration
 └── README.md                                # Project documentation
@@ -452,6 +454,31 @@ The current implementation provides these tools organized by category:
   - Parameters: category_name
 - This tool may have performance implications for large models.
 
+### **MEP Tools**
+- **create_pipe**: Create a pipe run between two points
+  - Parameters: start_x/y/z, end_x/y/z, diameter_mm, system_type_name, pipe_type_name, level_name
+- **create_sloped_pipe**: Create a sloped drainage/sanitary pipe run
+  - Parameters: same as create_pipe, plus slope (e.g. 0.01 for a 1% drop)
+  - Applies the slope via `PlumbingUtils.SetSlope` after the pipe is created
+- **create_duct**: Create a duct run between two points
+  - Parameters: start_x/y/z, end_x/y/z, width_mm + height_mm (rectangular) or diameter_mm (round), system_type_name, duct_type_name, level_name
+- **create_cable_tray**: Create an electrical cable tray run between two points
+  - Parameters: start_x/y/z, end_x/y/z, width_mm, height_mm, cable_tray_type_name, level_name
+- **create_conduit**: Create an electrical conduit run between two points
+  - Parameters: start_x/y/z, end_x/y/z, diameter_mm, conduit_type_name, level_name
+- **get_mep_systems**: Map the piping/duct/electrical system tree, including base equipment and connected elements
+  - Parameters: system_type ("piping"/"duct"/"electrical"/"all"), name_contains
+- **connect_elements**: Connect two MEP components using their native Revit connectors (nearest open, compatible pair)
+  - Parameters: element_id_1, element_id_2
+- **read_panel_schedule**: Extract circuit numbers, load names, and phase balance from an electrical panel
+  - Parameters: panel_name
+- **check_mep_clashes**: Run a localized clash detection routine between two categories (e.g. Ducts vs. Structural Framing)
+  - Parameters: category_a, category_b, limit
+  - Uses bounding-box pre-filtering followed by solid boolean intersection
+  - Renamed from upstream check_clashes: the general multi-category clash tool
+    (clash_tools.py, from Demolinator) owns the check_clashes name; this is the
+    narrow two-category MEP variant behind POST /check_clashes/
+
 ---
 
 ## **Current Route Endpoints** |
@@ -483,6 +510,17 @@ The pyRevit extension exposes these HTTP endpoints under `http://localhost:48884
 ### **Color Splashing Endpoints**
 - `POST /splash_color/` - Apply color to all elements of a specific category
   - Parameters: category_name, color (RGB tuple)
+
+### **MEP Endpoints**
+- `POST /create_pipe/` - Create a pipe run between two points
+- `POST /create_sloped_pipe/` - Create a sloped drainage/sanitary pipe run
+- `POST /create_duct/` - Create a duct run between two points
+- `POST /create_cable_tray/` - Create a cable tray run between two points
+- `POST /create_conduit/` - Create a conduit run between two points
+- `POST /get_mep_systems/` - Map the piping/duct/electrical system tree
+- `POST /connect_elements/` - Connect two MEP components via native connectors
+- `POST /read_panel_schedule/` - Read circuits, loads and phase balance from an electrical panel
+- `POST /check_clashes/` - Run a localized clash detection routine between two categories
 
 ---
 

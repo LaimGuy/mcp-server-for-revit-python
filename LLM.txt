@@ -28,7 +28,18 @@ revit-mcp-python/
 │   ├── family_tools.py                       # Family placement and management tools
 │   ├── colors_tools.py                       # Color splashing tools
 │   ├── code_execution_tools.py               # Code execution tools
-│   └── mep_tools.py                          # MEP tools (piping, ducts, cable trays, conduits, systems)
+│   ├── mep_tools.py                          # MEP tools (piping, ducts, cable trays, conduits, systems)
+│   ├── view_management_tools.py              # View creation and activation tools
+│   ├── documentation_tools.py                # Sheet, schedule and export tools
+│   ├── annotation_tools.py                   # Dimension and wall tagging tools
+│   ├── tag_tools.py                          # General element tagging tools
+│   ├── detail_tools.py                       # Detail line tools
+│   ├── editing_tools.py                      # Delete, modify and selection tools
+│   ├── transform_tools.py                    # Move, copy, rotate, mirror tools
+│   ├── parameter_tools.py                    # Element property and parameter tools
+│   ├── analysis_tools.py                     # Element filtering, room data, quantities, statistics
+│   ├── clash_tools.py                        # General clash detection tools
+│   └── interop_tools.py                      # IFC export and file linking tools
 ├── revit-mcp-python.extension/               # pyRevit Extension
 │   ├── startup.py                            # Extension entry point - registers all routes
 │   └── revit_mcp/                            # Routes API modules (organized by functionality)
@@ -41,6 +52,17 @@ revit-mcp-python/
 │       └── colors.py                         # Color splashing endpoints
 │       └── code_execution.py                 # Code execution endpoints
 │       └── mep.py                            # MEP endpoints (piping, ducts, cable trays, conduits, systems)
+│       └── view_management.py                # View creation and activation endpoints
+│       └── documentation.py                  # Sheet, schedule and export endpoints
+│       └── annotation.py                     # Dimension and wall tagging endpoints
+│       └── tags.py                           # General element tagging endpoints
+│       └── detail.py                         # Detail line endpoints
+│       └── editing.py                        # Delete, modify and selection endpoints
+│       └── transforms.py                     # Move, copy, rotate, mirror endpoints
+│       └── parameters.py                     # Element property and parameter endpoints
+│       └── analysis.py                       # Filtering, room data, quantities, statistics endpoints
+│       └── clash.py                          # General clash detection endpoints
+│       └── interop.py                        # IFC export and file linking endpoints
 ├── requirements.txt                          # Python dependencies
 ├── pyproject.toml                           # Project configuration
 └── README.md                                # Project documentation
@@ -479,6 +501,67 @@ The current implementation provides these tools organized by category:
     (clash_tools.py, from Demolinator) owns the check_clashes name; this is the
     narrow two-category MEP variant behind POST /check_clashes/
 
+### **View Management Tools**
+- **create_view**: Create a new view (floor plan, section, 3D, drafting, etc.)
+  - Parameters: view_type, name, level_name, section_box
+- **set_active_view**: Switch the active view by name
+  - Parameters: view_name
+
+### **Documentation Tools**
+- **create_sheet**: Create a sheet, optionally on a specific title block
+  - Parameters: sheet_number, sheet_name, title_block_name
+- **create_schedule**: Create a schedule for a category with chosen fields
+  - Parameters: category, fields, schedule_name
+- **export_document**: Export a view/sheet to PDF or image
+  - Parameters: view_name, format ("pdf"/"png"/"jpg"), resolution
+
+### **Annotation Tools**
+- **create_dimensions**: Dimension a set of elements
+  - Parameters: element_ids, dimension_type ("linear"/"aligned")
+- **tag_walls**: Tag all walls in the active view
+  - Parameters: use_leader, tag_type_name
+- **tag_elements** (tag_tools.py): Tag specific elements by id in a view
+  - Parameters: element_ids, view_name, tag_type_name, add_leader, orientation, offset
+- **create_detail_line** (detail_tools.py): Draw a detail line in a view
+  - Parameters: start_point, end_point, view_name, line_style
+
+### **Editing Tools**
+- **delete_elements**: Delete elements by id
+  - Parameters: element_ids
+- **modify_element**: Set multiple parameters on one element in a single transaction
+  - Parameters: element_id, parameters (dict of name -> value)
+- **get_selected_elements**: Report the current Revit UI selection
+- **transform_elements** (transform_tools.py): Move, copy, rotate or mirror elements
+  - Parameters: element_ids, operation ("move"/"copy"/"rotate"/"mirror"), vector, axis_point, angle, mirror_plane
+
+### **Parameter Tools**
+- **get_element_properties**: Full instance (and optionally type) parameter dump for one element
+  - Parameters: element_id, include_type_params
+- **set_parameter**: Set a single parameter by name on one element
+  - Parameters: element_id, parameter_name, value
+
+### **Analysis Tools**
+- **ai_element_filter**: Query elements by category/type/view visibility/bounding box
+  - Parameters: category, type_name, visible_in_view, bounding_box_min, bounding_box_max, max_elements
+- **export_room_data**: Export name, number, area and level for all placed rooms
+- **get_material_quantities**: Material takeoff (volumes/areas) by category
+  - Parameters: categories
+- **analyze_model_statistics**: Element counts by category across the model
+
+### **Clash Tools**
+- **check_clashes**: General clash detection between two category sets using Revit's native interference logic
+  - Parameters: set_a_categories, set_b_categories, max_clashes
+  - No categories given = default physical scope (arch + structural + MEP) checked against itself
+  - This is the broad tool; see check_mep_clashes above for the two-category MEP variant
+
+### **Interop Tools**
+- **export_ifc**: Export the model (optionally one view) to IFC
+  - Parameters: file_path, ifc_version ("IFC2x3"/"IFC4"), export_base_quantities, view_name
+- **link_file**: Link or import an RVT/CAD file
+  - Parameters: file_path, mode ("link"/"import"), position
+- **load_family** (family_tools.py): Load a family from an .rfa file into the model
+  - Parameters: file_path
+
 ---
 
 ## **Current Route Endpoints** |
@@ -521,6 +604,43 @@ The pyRevit extension exposes these HTTP endpoints under `http://localhost:48884
 - `POST /connect_elements/` - Connect two MEP components via native connectors
 - `POST /read_panel_schedule/` - Read circuits, loads and phase balance from an electrical panel
 - `POST /check_clashes/` - Run a localized clash detection routine between two categories
+
+### **View Management Endpoints**
+- `POST /create_view/` - Create a new view
+- `POST /set_active_view/` - Switch the active view
+
+### **Documentation Endpoints**
+- `POST /create_sheet/` - Create a sheet
+- `POST /create_schedule/` - Create a schedule
+- `POST /export_document/` - Export a view/sheet to PDF or image
+
+### **Annotation & Detail Endpoints**
+- `POST /create_dimensions/` - Dimension a set of elements
+- `POST /tag_walls/` - Tag all walls in the active view
+- `POST /tag_elements/` - Tag specific elements in a view
+- `POST /create_detail_line/` - Draw a detail line in a view
+
+### **Editing & Transform Endpoints**
+- `POST /delete_elements/` - Delete elements by id
+- `POST /modify_element/` - Set multiple parameters on one element
+- `GET /selected_elements/` - Report the current UI selection
+- `POST /transform_elements/` - Move, copy, rotate or mirror elements
+
+### **Parameter Endpoints**
+- `GET /element_properties/<element_id>` - Parameter dump for one element
+- `POST /set_parameter/` - Set a single parameter on one element
+
+### **Analysis Endpoints**
+- `POST /ai_filter/` - Query elements by category/type/view/bounding box
+- `GET /room_data/` - Export data for all placed rooms
+- `POST /material_quantities/` - Material takeoff by category
+- `GET /model_statistics/` - Element counts by category
+
+### **Clash & Interop Endpoints**
+- `POST /clash_check/` - General clash detection between two category sets (note: /check_clashes/ is the MEP two-category variant)
+- `POST /export_ifc/` - Export to IFC
+- `POST /link_file/` - Link or import an RVT/CAD file
+- `POST /load_family/` - Load a family from an .rfa file
 
 ---
 

@@ -4,7 +4,12 @@ Analysis Module for Revit MCP
 Handles element filtering, room data, material quantities, and model statistics
 """
 
-from .utils import get_element_name, normalize_string, get_element_id_value
+from .utils import (
+    get_element_name,
+    normalize_string,
+    get_element_id_value,
+    model_elements,
+)
 from pyrevit import routes, revit, DB
 import json
 import traceback
@@ -423,12 +428,9 @@ def register_analysis_routes(api):
                     data={"error": "No active Revit document"}, status=503
                 )
 
-            # Get all model elements (exclude types, views, annotations where possible)
-            all_elements = (
-                DB.FilteredElementCollector(doc)
-                .WhereElementIsNotElementType()
-                .ToElements()
-            )
+            # Get all model elements (exclude types, and Materials, which are
+            # returned by WhereElementIsNotElementType but are not model geometry)
+            all_elements = model_elements(doc).ToElements()
 
             category_counts = {}
             total = 0

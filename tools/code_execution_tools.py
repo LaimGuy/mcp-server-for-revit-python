@@ -15,31 +15,29 @@ def register_code_execution_tools(mcp, revit_get, revit_post, revit_image=None):
         code: str, description: str = "Code execution", ctx: Context = None
     ) -> str:
         """
-        Execute IronPython code directly in Revit context.
+        Execute IronPython code in the Revit context. One payload does the whole
+        job: collect, classify, and write together.
 
-        The code has access to:
-        - doc: The active Revit document
-        - uidoc: The active UIDocument (use for UI operations like switching the active view)
-        - DB: Revit API Database namespace
-        - revit: pyRevit module
-        - print: Function to output text (returned in response)
+        Injected namespace: doc, uidoc, DB, revit, print, plus helpers —
+          safe_tx(doc, name)      started transaction, modal-free. ALWAYS this,
+                                  never a bare DB.Transaction (a routine warning
+                                  goes modal and hangs the bridge until a human
+                                  clicks it). Caller owns Commit().
+          suppress_warnings(t)    same handling for a transaction you built
+          model_elements(doc, bic=None, view_id=None)
+                                  collector with Materials excluded
+          safe_name(el)           Element.Name is shadowed under IronPython
+          family_name(el)         family name of an instance or symbol
 
-        No transaction is opened automatically. Wrap model-modifying code yourself:
-            t = DB.Transaction(doc, "My change")
-            t.Start()
-            # ... modify model ...
-            t.Commit()
+        safe_name/family_name return None on a miss, never a placeholder. Do not
+        substitute getattr(el, 'Name', 'N/A'): the placeholder makes every name
+        comparison silently miss, and the job reports "0 found" instead of failing.
 
-        For UI operations that cannot run inside a transaction (e.g. switching the active view):
-            all_views = DB.FilteredElementCollector(doc).OfClass(DB.View).ToElements()
-            target = next((v for v in all_views if v.Name == "Level 1"), None)
-            if target:
-                uidoc.ActiveView = target
+        No transaction is opened for you. Anything not needing one (reads, and UI
+        ops like uidoc.ActiveView = view) must stay outside a transaction.
 
-        Tips:
-        - Use getattr(element, 'Name', 'N/A') to safely access the Name property
-        - Check elements exist before use: if element:
-        - Use hasattr() for optional properties
+        Returns printed output only — the script is not echoed back. On failure,
+        read the traceback's line number against the script you sent.
         """
         try:
             payload = {"code": code, "description": description}

@@ -58,6 +58,68 @@ def get_element_name(element):
         return DB.Element.Name.__get__(element)
 
 
+def safe_name(element):
+    """Get an element's name, or None. Never a placeholder.
+
+    `element.Name` raises AttributeError under IronPython on many Revit types
+    (FamilySymbol especially) because the .NET property is shadowed. The correct
+    unwrap is DB.Element.Name.__get__(element); type parameters cover the rest.
+
+    Returns None on total failure and NEVER a placeholder like 'N/A'. A
+    placeholder silently turns every name comparison into a non-match, so the
+    job reports "0 found" instead of failing somewhere you can see it.
+    """
+    if element is None:
+        return None
+    try:
+        return element.Name
+    except AttributeError:
+        pass
+    try:
+        return DB.Element.Name.__get__(element)
+    except Exception:
+        pass
+    for bip in (
+        DB.BuiltInParameter.SYMBOL_NAME_PARAM,
+        DB.BuiltInParameter.ALL_MODEL_TYPE_NAME,
+        DB.BuiltInParameter.ELEM_TYPE_PARAM,
+    ):
+        try:
+            param = element.get_Parameter(bip)
+            if param:
+                value = param.AsString()
+                if value:
+                    return value
+        except Exception:
+            continue
+    return None
+
+
+def family_name(element):
+    """Family name for a FamilyInstance or FamilySymbol, or None.
+
+    Same Name-shadowing hazard as safe_name, one level deeper: reaching
+    inst.Symbol.Family.Name directly throws, and inside a generator expression
+    the traceback points at the genexpr rather than the real cause.
+    """
+    if element is None:
+        return None
+    family = None
+    for path in ("Family", "Symbol"):
+        try:
+            candidate = getattr(element, path, None)
+        except Exception:
+            candidate = None
+        if candidate is None:
+            continue
+        family = candidate if path == "Family" else getattr(candidate, "Family", None)
+        if family is not None:
+            break
+    if family is None:
+        return None
+    return safe_name(family)
+
+
 def find_family_symbol_safely(doc, target_family_name, target_type_name=None):
     """
     Safely find a family symbol by name
@@ -116,6 +178,51 @@ def suppress_warnings(transaction):
     except Exception:
         pass
 
+
+
+def safe_tx(doc, name):
+    """Start a transaction that already has modal-free failure handling attached.
+
+    Equivalent to Transaction(doc, name) + Start() + suppress_warnings(), which
+    is the only correct way to open a transaction on the Routes server. Returns
+    the started transaction; the caller still owns Commit()/RollBack().
+    """
+    transaction = DB.Transaction(doc, name)
+    transaction.Start()
+    suppress_warnings(transaction)
+    return transaction
+
+
+def model_elements(doc, built_in_category=None, view_id=None):
+    """Collector for real model elements, with Materials excluded.
+
+    WhereElementIsNotElementType() on its own also returns Material elements.
+    That matters for writes: measured on a 6,362-element model, setting a
+    parameter on a Material costs ~443 ms because it cascades an appearance
+    regen through every element referencing it, against ~1-3 ms for ordinary
+    geometry. A loop that unknowingly picks up Materials runs two orders of
+    magnitude slower than it should.
+
+    Pass built_in_category to scope further (always preferred), and view_id to
+    restrict to a single view, which is far cheaper than a document-wide scan.
+    """
+    if view_id is not None:
+        collector = DB.FilteredElementCollector(doc, view_id)
+    else:
+        collector = DB.FilteredElementCollector(doc)
+
+    collector = collector.WhereElementIsNotElementType()
+
+    if built_in_category is not None:
+        return collector.OfCategory(built_in_category)
+
+    # No explicit category: at minimum keep Materials out of the result.
+    try:
+        return collector.WherePasses(
+            DB.ElementCategoryFilter(DB.BuiltInCategory.OST_Materials, True)
+        )
+    except Exception:
+        return collector
 
 
 def sanitize_string(text):

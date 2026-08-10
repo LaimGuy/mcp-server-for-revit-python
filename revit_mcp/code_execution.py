@@ -4,6 +4,7 @@ Code Execution Module for Revit MCP
 Handles direct execution of IronPython code in Revit context.
 """
 from pyrevit import routes, revit, DB
+from .utils import safe_tx, suppress_warnings, model_elements, safe_name, family_name
 import json
 import logging
 import sys
@@ -55,6 +56,20 @@ def register_code_execution_routes(api):
                 "uidoc": uidoc,
                 "DB": DB,
                 "revit": revit,
+                # Transaction/collector helpers. safe_tx is the only correct way
+                # to open a transaction here: a bare DB.Transaction lets a routine
+                # Revit warning go modal, which blocks the UI thread so the
+                # external event never completes and every later request times out
+                # until a human clicks the dialog.
+                "safe_tx": safe_tx,
+                "suppress_warnings": suppress_warnings,
+                "model_elements": model_elements,
+                # Name accessors. Element.Name is shadowed under IronPython and
+                # throws AttributeError on FamilySymbol and friends; these are
+                # bound here so the trap cannot be walked into. Both return None
+                # rather than a placeholder, so a miss fails visibly.
+                "safe_name": safe_name,
+                "family_name": family_name,
                 "__builtins__": __builtins__,
                 "print": lambda *args: captured_output.write(
                     " ".join(str(arg) for arg in args) + "\n"
@@ -77,7 +92,10 @@ def register_code_execution_routes(api):
                             if output
                             else "Code executed successfully (no output)"
                         ),
-                        "code_executed": code_to_execute,
+                        # The submitted script is deliberately NOT echoed back.
+                        # The caller already has it in context; returning it
+                        # roughly doubles the cost of every call for no
+                        # information gain.
                     }
                 )
 
@@ -95,14 +113,17 @@ def register_code_execution_routes(api):
                 if error_type == "AttributeError":
                     if "Name" in error_msg:
                         hints.append(
-                            "The 'Name' property may not be directly accessible in IronPython. "
-                            "Try getattr(element, 'Name', 'N/A') or "
-                            "element.get_Parameter(DB.BuiltInParameter.ALL_MODEL_TYPE_NAME).AsString()"
+                            "Element.Name is shadowed under IronPython. Use the "
+                            "injected safe_name(el) / family_name(el) helpers. Do NOT "
+                            "use getattr(el, 'Name', 'N/A') - the placeholder makes "
+                            "every name comparison silently miss, so the job reports "
+                            "'0 found' instead of failing."
                         )
                     else:
                         hints.append(
-                            "Some Revit API properties are not directly accessible in IronPython. "
-                            "Try getattr(obj, 'property_name', default_value) for safe access."
+                            "Some Revit API properties are not directly accessible in "
+                            "IronPython. Prefer an explicit try/except that re-raises or "
+                            "returns None over a getattr default, which hides the miss."
                         )
                 elif error_type == "NullReferenceException" or "NoneType" in error_msg:
                     hints.append(
@@ -111,18 +132,24 @@ def register_code_execution_routes(api):
                     )
                 elif error_type == "InvalidOperationException":
                     hints.append(
-                        "This operation may require a transaction. Wrap model-modifying "
-                        "code in: t = DB.Transaction(doc, 'desc'); t.Start(); ...; t.Commit()"
+                        "This operation may require a transaction. Use the injected "
+                        "helper: t = safe_tx(doc, 'desc'); ...; t.Commit(). Never a "
+                        "bare DB.Transaction - it lets a routine Revit warning go "
+                        "modal and hang the bridge until a human clicks the dialog."
                     )
 
                 logger.error("Code execution failed: {}".format(enhanced_message))
 
+                # code_attempted is deliberately omitted. Measured: errors
+                # averaged 3,954 B against 885 B for a success, and the echoed
+                # script was 96% of that - so 10% of calls produced 32% of all
+                # bytes returned. The caller already has the script in context;
+                # the traceback's line number is the only new information.
                 response_data = {
                     "status": "error",
                     "error": enhanced_message,
                     "error_type": error_type,
                     "traceback": error_traceback,
-                    "code_attempted": code_to_execute,
                 }
 
                 if partial_output:

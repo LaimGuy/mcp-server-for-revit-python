@@ -1,6 +1,80 @@
 # -*- coding: utf-8 -*-
 """Tool registration system for Revit MCP Server"""
 
+import logging
+import os
+
+logger = logging.getLogger(__name__)
+
+# Tools kept when the surface is trimmed, which is the default.
+#
+# Why trim: an MCP client defers tool *schemas* once the registered surface gets
+# large. The full 62-tool surface trips that, so a session's first action becomes
+# a ToolSearch round trip just to load a schema before it can touch Revit at all
+# - paid on every single session. Keeping the count low keeps schemas eager, so
+# the first call reaches the model.
+#
+# Little is lost by cutting. Every removed tool wraps Revit API calls that
+# execute_revit_code can make directly in one payload, which is how this
+# workflow operates anyway (see CLAUDE.md). A trimmed tool is one env var away.
+#
+# Set REVIT_MCP_ALL_TOOLS=1 to register the full surface.
+CORE_TOOLS = frozenset(
+    [
+        "execute_revit_code",  # the workhorse; everything below is reachable from it
+        "get_revit_status",  # is the bridge alive, is a document open
+        "get_revit_model_info",  # document identity and counts
+        "get_current_view_info",  # cheap active-view context
+        "list_revit_views",  # view lookup by name
+        "get_selected_elements",  # acting on the user's current selection
+        "check_element_ownership",  # worksharing pre-flight before a bulk edit
+    ]
+)
+
+# Cut for a reason beyond disuse: get_current_view_elements measured 304 B per
+# element with no bounded or summary mode, so an ordinary MEP coordination view
+# blows the context window in a single call with no warning. Ask
+# execute_revit_code for a category tally plus only the ids actually needed.
+
+
+def _trim_tool_surface(mcp_server):
+    """Drop non-core tools from the registry. Best-effort, never fatal."""
+    if os.environ.get("REVIT_MCP_ALL_TOOLS", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ):
+        logger.info("REVIT_MCP_ALL_TOOLS set; registering the full tool surface.")
+        return
+
+    try:
+        manager = mcp_server._tool_manager
+        registered = set(manager._tools.keys())
+    except AttributeError:
+        logger.warning(
+            "FastMCP tool registry not accessible; keeping all tools registered."
+        )
+        return
+
+    missing = CORE_TOOLS - registered
+    if missing:
+        logger.warning(
+            "Core tools never registered (name drift?): %s", ", ".join(sorted(missing))
+        )
+
+    for name in sorted(registered - CORE_TOOLS):
+        try:
+            manager.remove_tool(name)
+        except Exception:
+            manager._tools.pop(name, None)
+
+    logger.info(
+        "Tool surface trimmed to %d of %d. Set REVIT_MCP_ALL_TOOLS=1 to restore.",
+        len(manager._tools),
+        len(registered),
+    )
+
 
 def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func):
     """Register all tools with the MCP server"""
@@ -72,3 +146,7 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
     # Hanger tagging (csamp05, MIT) + generic support naming (ours)
     register_hanger_tools(mcp_server, revit_get_func, revit_post_func)
     # --- End local additions ---
+
+    # Keep last: everything above registers, then the surface is trimmed to
+    # CORE_TOOLS so schemas stay eager on the client.
+    _trim_tool_surface(mcp_server)

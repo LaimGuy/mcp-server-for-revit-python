@@ -89,6 +89,11 @@ def register_routes():
         register_support_naming_routes(api)
         # --- End local additions ---
 
+        # Manifest last, so it can describe everything that registered above
+        from revit_mcp.manifest import register_manifest_routes
+
+        register_manifest_routes(api)
+
         logger.info("All MCP routes registered successfully")
 
     except Exception as e:

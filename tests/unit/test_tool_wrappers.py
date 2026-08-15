@@ -2,12 +2,12 @@
 """Tests for other tool module wrappers — verify endpoints and payloads."""
 import pytest
 from unittest.mock import AsyncMock
-from tools.status_tools import register_status_tools
-from tools.model_tools import register_model_tools
-from tools.view_tools import register_view_tools
-from tools.family_tools import register_family_tools
-from tools.colors_tools import register_colors_tools
-from tools.code_execution_tools import register_code_execution_tools
+from revit_mcp_server.tools.status_tools import register_status_tools
+from revit_mcp_server.tools.model_tools import register_model_tools
+from revit_mcp_server.tools.view_tools import register_view_tools
+from revit_mcp_server.tools.family_tools import register_family_tools
+from revit_mcp_server.tools.colors_tools import register_colors_tools
+from revit_mcp_server.tools.code_execution_tools import register_code_execution_tools
 
 
 # ---- Status tools ----
@@ -95,15 +95,13 @@ class TestFamilyTools:
 
     async def test_list_families_default(self):
         await self.tools["list_families"](ctx=None)
-        self.mock_post.assert_called_once_with(
-            "/list_families/", {"limit": 50}, None
-        )
+        self.mock_get.assert_called_once_with("/list_families/", None, params={})
 
     async def test_list_families_with_filter(self):
         await self.tools["list_families"](contains="Door", limit=10, ctx=None)
-        call_data = self.mock_post.call_args[0][1]
-        assert call_data["contains"] == "Door"
-        assert call_data["limit"] == 10
+        params = self.mock_get.call_args.kwargs["params"]
+        assert params["contains"] == "Door"
+        assert params["limit"] == "10"
 
     async def test_list_family_categories(self):
         await self.tools["list_family_categories"](ctx=None)

@@ -2,10 +2,10 @@
 """Tests for _wait_for_revit_ready with mocked async calls."""
 import pytest
 from unittest.mock import AsyncMock, patch
-from tools.launch_tools import _wait_for_revit_ready
+from revit_mcp_server.tools.launch_tools import _wait_for_revit_ready
 
 
-@patch("tools.launch_tools.anyio.sleep", new_callable=AsyncMock)
+@patch("revit_mcp_server.tools.launch_tools.anyio.sleep", new_callable=AsyncMock)
 async def test_immediate_ready(mock_sleep):
     """Revit responds on first poll."""
     mock_get = AsyncMock(return_value={"status": "active", "health": "healthy"})
@@ -16,7 +16,7 @@ async def test_immediate_ready(mock_sleep):
     mock_sleep.assert_not_called()
 
 
-@patch("tools.launch_tools.anyio.sleep", new_callable=AsyncMock)
+@patch("revit_mcp_server.tools.launch_tools.anyio.sleep", new_callable=AsyncMock)
 async def test_ready_after_retries(mock_sleep):
     """Revit fails twice then responds."""
     mock_get = AsyncMock(
@@ -35,7 +35,7 @@ async def test_ready_after_retries(mock_sleep):
     assert mock_sleep.call_count == 2
 
 
-@patch("tools.launch_tools.anyio.sleep", new_callable=AsyncMock)
+@patch("revit_mcp_server.tools.launch_tools.anyio.sleep", new_callable=AsyncMock)
 async def test_503_means_ready(mock_sleep):
     """An HTTP 503 string response means Revit is up but has no document."""
     mock_get = AsyncMock(return_value="Error: 503 - Service Unavailable")
@@ -46,7 +46,7 @@ async def test_503_means_ready(mock_sleep):
 
 
 @patch("time.time")
-@patch("tools.launch_tools.anyio.sleep", new_callable=AsyncMock)
+@patch("revit_mcp_server.tools.launch_tools.anyio.sleep", new_callable=AsyncMock)
 async def test_timeout(mock_sleep, mock_time):
     """Revit never responds — returns False after timeout."""
     # Simulate time progressing past the timeout

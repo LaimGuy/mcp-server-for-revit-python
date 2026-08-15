@@ -1,0 +1,14 @@
+{
+    "builtin": "False",
+    "default_enabled": "True",
+    "type": "extension",
+    "rocket_mode_compatible": "True",
+    "name": "RevitMCP",
+    "description": "MCP bridge between Revit and Claude Code / Codex via pyRevit Routes. Installed by the revit-mcp package.",
+    "author": "Superior Electric BIM (built on work by Juan D. Rodriguez / Jean-Marc Couffin)",
+    "author_profile": "https://github.com/LaimGuy",
+    "url": "https://github.com/LaimGuy/mcp-server-for-revit-python",
+    "website": "",
+    "image": "",
+    "dependencies": []
+}

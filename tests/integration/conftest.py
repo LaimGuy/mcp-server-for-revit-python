@@ -4,7 +4,8 @@ import os
 import pytest
 import httpx
 
-BASE_URL = "http://localhost:48884/revit_mcp"
+from revit_mcp_server import config
+
 TEST_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "test.rvt")
 
 
@@ -12,7 +13,7 @@ async def _revit_get(endpoint, ctx=None, **kwargs):
     """Real HTTP GET to pyRevit Routes."""
     timeout = kwargs.pop("timeout", 30.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
-        response = await client.get(f"{BASE_URL}{endpoint}")
+        response = await client.get(f"{config.base_url()}{endpoint}")
         if response.status_code == 200:
             return response.json()
         return f"Error: {response.status_code} - {response.text}"
@@ -21,7 +22,7 @@ async def _revit_get(endpoint, ctx=None, **kwargs):
 async def _revit_post(endpoint, data, ctx=None, **kwargs):
     """Real HTTP POST to pyRevit Routes."""
     async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(f"{BASE_URL}{endpoint}", json=data)
+        response = await client.post(f"{config.base_url()}{endpoint}", json=data)
         if response.status_code == 200:
             return response.json()
         return f"Error: {response.status_code} - {response.text}"
@@ -34,7 +35,7 @@ async def revit_ready():
     Tries to connect first. If Revit isn't running, launches it
     and waits for readiness. Runs once per test session.
     """
-    from tools.launch_tools import (
+    from revit_mcp_server.tools.launch_tools import (
         _find_revit_installations,
         _select_revit,
         _build_launch_command,
@@ -67,7 +68,8 @@ async def revit_ready():
 @pytest.fixture(scope="session")
 def test_file_path():
     """Path to the test .rvt file."""
-    assert os.path.isfile(TEST_FILE), f"Test file not found: {TEST_FILE}"
+    if not os.path.isfile(TEST_FILE):
+        pytest.skip(f"Test file not found: {TEST_FILE} (untracked; copy one in to run document tests)")
     return TEST_FILE
 
 

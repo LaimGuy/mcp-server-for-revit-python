@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Tests for pure helper functions in tools.launch_tools"""
-from tools.launch_tools import _select_revit, _build_launch_command
+from revit_mcp_server.tools.launch_tools import _select_revit, _build_launch_command
 
 
 SAMPLE_INSTALLATIONS = [

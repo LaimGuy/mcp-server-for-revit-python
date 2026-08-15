@@ -4,7 +4,7 @@ import sys
 import types
 from unittest.mock import patch, MagicMock
 import pytest
-from tools.launch_tools import _find_revit_installations
+from revit_mcp_server.tools.launch_tools import _find_revit_installations
 
 
 def _make_mock_winreg(subkeys_by_hive=None):
@@ -58,7 +58,7 @@ def _make_mock_winreg(subkeys_by_hive=None):
 class TestFindInstallationsFilesystem:
     """Test the filesystem fallback path (no registry)."""
 
-    @patch("tools.launch_tools.os.path.isfile")
+    @patch("revit_mcp_server.tools.launch_tools.os.path.isfile")
     def test_filesystem_finds_revit(self, mock_isfile):
         """Filesystem scan finds Revit 2025."""
         def isfile(path):
@@ -72,7 +72,7 @@ class TestFindInstallationsFilesystem:
         assert len(result) == 1
         assert result[0]["year"] == "2025"
 
-    @patch("tools.launch_tools.os.path.isfile")
+    @patch("revit_mcp_server.tools.launch_tools.os.path.isfile")
     def test_multiple_versions_sorted(self, mock_isfile):
         """Multiple filesystem versions are returned newest-first."""
         found_years = {"2024", "2025", "2026"}
@@ -90,7 +90,7 @@ class TestFindInstallationsFilesystem:
         years = [r["year"] for r in result]
         assert years == ["2026", "2025", "2024"]
 
-    @patch("tools.launch_tools.os.path.isfile", return_value=False)
+    @patch("revit_mcp_server.tools.launch_tools.os.path.isfile", return_value=False)
     def test_no_revit_found(self, mock_isfile):
         """No installations found returns empty list."""
         with patch.dict(sys.modules, {"winreg": None}):
@@ -98,7 +98,7 @@ class TestFindInstallationsFilesystem:
 
         assert result == []
 
-    @patch("tools.launch_tools.os.path.isfile", return_value=False)
+    @patch("revit_mcp_server.tools.launch_tools.os.path.isfile", return_value=False)
     def test_deduplication(self, mock_isfile):
         """Registry and filesystem don't produce duplicates for the same year."""
         # Even with no filesystem hits, an empty result is fine

@@ -2,7 +2,7 @@
 """Tests for tools.utils.format_response()"""
 import json
 import pytest
-from tools.utils import format_response
+from revit_mcp_server.tools.utils import format_response
 
 
 class TestSuccessResponses:
@@ -22,10 +22,10 @@ class TestSuccessResponses:
         result = format_response({"status": "success", "data": [1, 2]})
         assert result == "[1, 2]"
 
-    def test_success_fallback_json(self):
-        resp = {"status": "success"}
-        result = format_response(resp)
-        assert json.loads(result) == resp
+    def test_success_fallback_message(self):
+        # A bare success wrapper with no data fields gets the generic message
+        result = format_response({"status": "success"})
+        assert result == "Operation completed successfully"
 
     def test_priority_output_over_message(self):
         result = format_response(

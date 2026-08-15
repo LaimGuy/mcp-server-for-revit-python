@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests for MEP tool wrappers — verify endpoints and payloads."""
 import pytest
-from tools.mep_tools import register_mep_tools
+from revit_mcp_server.tools.mep_tools import register_mep_tools
 
 
 class TestMepTools:
@@ -144,20 +144,3 @@ class TestMepTools:
             "/read_panel_schedule/", {"panel_name": "Panel A1"}, None
         )
 
-    async def test_check_clashes_default_limit(self):
-        await self.tools["check_clashes"](
-            category_a="Ducts", category_b="Structural Framing", ctx=None
-        )
-        self.mock_post.assert_called_once_with(
-            "/check_clashes/",
-            {"category_a": "Ducts", "category_b": "Structural Framing", "limit": 25},
-            None,
-            timeout=60.0,
-        )
-
-    async def test_check_clashes_custom_limit(self):
-        await self.tools["check_clashes"](
-            category_a="Pipes", category_b="Structural Columns", limit=10, ctx=None
-        )
-        call_data = self.mock_post.call_args[0][1]
-        assert call_data["limit"] == 10

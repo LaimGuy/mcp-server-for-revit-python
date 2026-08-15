@@ -17,9 +17,15 @@ This implementation uses a **modular architecture** that separates concerns and 
 
 ### **Project Structure**
 ```
-revit-mcp-python/
-├── main.py                                    # MCP Server (FastMCP implementation)
-├── tools/                                     # MCP Tool definitions (organized by functionality)
+mcp-server-for-revit-python/            # installable package: `revit-mcp` (pip/uvx)
+├── src/revit_mcp_server/
+│   ├── main.py                                # MCP Server (FastMCP implementation)
+│   ├── config.py                              # REVIT_HOST/REVIT_PORT env vars + port probing
+│   ├── cli.py                                 # revit-mcp serve|install|doctor|uninstall
+│   ├── installer.py                           # one-command setup (extension + client configs)
+│   ├── doctor.py                              # end-to-end diagnostics
+│   ├── usage_log.py                           # local JSONL usage telemetry (contract v1)
+│   ├── tools/                                 # MCP Tool definitions (organized by functionality)
 │   ├── __init__.py                           # Tool registration system
 │   ├── utils.py                              # Utility functions for response formatting
 │   ├── status_tools.py                       # Status and connectivity tools
@@ -40,9 +46,9 @@ revit-mcp-python/
 │   ├── analysis_tools.py                     # Element filtering, room data, quantities, statistics
 │   ├── clash_tools.py                        # General clash detection tools
 │   └── interop_tools.py                      # IFC export and file linking tools
-├── revit-mcp-python.extension/               # pyRevit Extension
-│   ├── startup.py                            # Extension entry point - registers all routes
-│   └── revit_mcp/                            # Routes API modules (organized by functionality)
+│   └── extension/RevitMCP.extension/          # pyRevit Extension (IronPython 2.7; installed to %APPDATA%\pyRevit\Extensions)
+│       ├── startup.py                         # Extension entry point - registers all routes
+│       └── revit_mcp/                         # Routes API modules (organized by functionality)
 │       ├── __init__.py
 │       ├── status.py                         # Health check and status endpoints
 │       ├── model_info.py                     # Model information endpoints
@@ -76,7 +82,7 @@ revit-mcp-python/
    - Registers tools from modular tool system
    - Provides helper functions for GET/POST/Image requests
 
-2. **pyRevit Extension (`revit-mcp-python.extension/`)**:
+2. **pyRevit Extension (`src/revit_mcp_server/extension/RevitMCP.extension/`)**:
    - Contains the Routes API that runs inside Revit
    - Modular route registration in `startup.py`
    - Individual route modules in `revit_mcp/` directory
@@ -668,10 +674,10 @@ The modular architecture makes it easy to add new functionality. The process inv
 
 ### **Part 1: Create the Route Module in Revit**
 
-First, create a new Python file within the `revit-mcp-python.extension/revit_mcp/` directory (e.g., `revit_mcp/your_module.py`). This module will contain all the related functions you want to expose, whether they are for reading data (`GET`) or modifying the model (`POST`).
+First, create a new Python file within the `src/revit_mcp_server/extension/RevitMCP.extension/revit_mcp/` directory (e.g., `revit_mcp/your_module.py`). This module will contain all the related functions you want to expose, whether they are for reading data (`GET`) or modifying the model (`POST`).
 
 ```
-# In revit-mcp-python.extension/revit_mcp/your_module.py
+# In src/revit_mcp_server/extension/RevitMCP.extension/revit_mcp/your_module.py
 
 # -*- coding: UTF-8 -*-
 """
@@ -782,10 +788,10 @@ Finally, register both the route module and the tool module. This makes them act
 
 **1. Register the Route Module:**
 
-Open `revit-mcp-python.extension/startup.py` and add your new route registration function.
+Open `src/revit_mcp_server/extension/RevitMCP.extension/startup.py` and add your new route registration function.
 
 ```
-# In revit-mcp-python.extension/startup.py
+# In src/revit_mcp_server/extension/RevitMCP.extension/startup.py
 
 # ... (other imports)
 # Import the registration function from your new module
@@ -809,10 +815,10 @@ def register_routes():
 
 **2. Register the Tool Module:**
 
-Open `tools/__init__.py` and add your new tool registration function.
+Open `src/revit_mcp_server/tools/__init__.py` and add your new tool registration function.
 
 ```
-# In tools/__init__.py
+# In src/revit_mcp_server/tools/__init__.py
 
 # ... (other tool imports)
 # Import the registration function from your new tool module
@@ -873,10 +879,14 @@ message = "Processing {} elements".format(count)
 The modular architecture provides several extension points:
 
 ### **Adding New Route Categories**
-1. Create new module in `revit_mcp/`
-2. Register in `startup.py`
-3. Create corresponding tool module in `tools/`
-4. Register tools in `tools/__init__.py`
+1. Create new module in `src/revit_mcp_server/extension/RevitMCP.extension/revit_mcp/`
+2. Register in `src/revit_mcp_server/extension/RevitMCP.extension/startup.py`
+3. Create corresponding tool module in `src/revit_mcp_server/tools/`
+4. Register tools in `src/revit_mcp_server/tools/__init__.py`
+5. Add a manifest entry in `revit_mcp/manifest.py` (name, origin, routes) — see
+   `docs/CONTRACTS.md`. Tool names are snake_case, verb-first, and permanent
+   once shipped in a tagged release. If the tool should be in the default
+   (trimmed) surface, also add it to `CORE_TOOLS` in `tools/__init__.py`.
 
 ### **Extending Existing Categories**
 - Add new routes to existing modules

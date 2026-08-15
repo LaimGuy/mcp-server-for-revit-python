@@ -38,6 +38,11 @@ def main(argv=None):
     stats = sub.add_parser("stats", help="Usage and snippet telemetry, with promotion candidates")
     stats.add_argument("--days", type=int, default=30)
 
+    ingest = sub.add_parser("ingest", help="Load JSONL telemetry into the SQLite db (idempotent)")
+    ingest.add_argument("--from", dest="extra_dirs", action="append", default=[],
+                        metavar="DIR", help="Extra telemetry dir to merge (repeatable), e.g. a coworker's copied revit-mcp folder")
+    ingest.add_argument("--db", dest="db_path", help="Database path override")
+
     promote = sub.add_parser("promote", help="Scaffold a named tool from a captured snippet")
     promote.add_argument("target", nargs="?", help="Snippet hash from `revit-mcp stats`")
     promote.add_argument("--from-file", dest="from_file", help="Seed the spec from a .py snippet file")
@@ -61,6 +66,10 @@ def main(argv=None):
     if args.cmd == "stats":
         from .stats import run_stats
         return run_stats(days=args.days)
+    if args.cmd == "ingest":
+        from .telemetry_db import ingest
+        ingest(args.db_path, args.extra_dirs)
+        return 0
     if args.cmd == "promote":
         from .promote import run_promote
         return run_promote(args)

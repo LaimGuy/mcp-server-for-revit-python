@@ -113,6 +113,24 @@ Validation refuses: non-verb-first names, manifest/module collisions, bare
 `body_py2`. Generated tools carry `origin: "generated"` and follow the same
 naming permanence once tagged.
 
+## Telemetry database (derived, v1)
+
+`%LOCALAPPDATA%\revit-mcp\telemetry.db` (SQLite) is the **query path**; the
+JSONL files remain the only write path and the source of truth. The server
+never touches the db. `revit-mcp ingest` loads JSONL into it idempotently
+(rows keyed by a hash of source + raw line — re-ingesting never duplicates),
+and `revit-mcp stats` auto-ingests local dirs before querying. Deleting the
+db loses nothing a re-ingest can't rebuild.
+
+Each row carries a `source` label: the local username for local ingests, the
+directory basename for `ingest --from <dir>` merges. Distinct sources per
+snippet hash is the cross-user graduation signal. Team aggregation = copy
+coworkers' `%LOCALAPPDATA%\revit-mcp` folders (or just their `snippets/` and
+`usage/` subdirs) to any location and point `--from` at them — no server or
+schema changes involved.
+
+Schema changes are additive; `meta.db_version` bumps on breaking changes.
+
 ## Generated-code fences
 
 Machine-managed regions are delimited by `# >>> revit-mcp:generated*:begin/end`

@@ -15,7 +15,7 @@ import os
 import time
 from datetime import datetime, timezone
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 SCHEMA_VERSION = 1
 
@@ -61,11 +61,11 @@ def log_usage(tool_name, kwargs, ok, duration_s, error_type=None):
         pass
 
 
-class LoggingFastMCP(FastMCP):
-    """FastMCP that records a usage line for every registered tool call.
+class LoggingMCPServer(MCPServer):
+    """MCPServer that records a usage line for every registered tool call.
 
     Wraps at registration so tools/*.py stay untouched. functools.wraps keeps
-    __wrapped__/annotations intact, so FastMCP's signature-based schema
+    __wrapped__/annotations intact, so the SDK's signature-based schema
     generation and Context injection see the original function.
     """
 

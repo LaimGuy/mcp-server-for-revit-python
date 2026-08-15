@@ -53,7 +53,7 @@ def _trim_tool_surface(mcp_server):
         registered = set(manager._tools.keys())
     except AttributeError:
         logger.warning(
-            "FastMCP tool registry not accessible; keeping all tools registered."
+            "MCP server tool registry not accessible; keeping all tools registered."
         )
         return
 

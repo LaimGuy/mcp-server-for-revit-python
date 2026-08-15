@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Hanger tagging tools"""
 
-from mcp.server.fastmcp import Context
+from mcp.server.mcpserver import Context
 from typing import List, Optional
 from .utils import format_response
 

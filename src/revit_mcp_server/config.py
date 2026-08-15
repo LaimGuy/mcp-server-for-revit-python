@@ -21,7 +21,7 @@ def get_host():
 
 
 def http_port():
-    """Port for FastMCP's own HTTP transports (--sse/--http/--combined)."""
+    """Port for the MCP server's own HTTP transports (--sse/--http/--combined)."""
     return int(os.environ.get("REVIT_MCP_HTTP_PORT", "8000"))
 
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """MEP tools: linear system creation, network topology, and system analysis"""
 
-from mcp.server.fastmcp import Context
+from mcp.server.mcpserver import Context
 from typing import Optional
 from .utils import format_response
 

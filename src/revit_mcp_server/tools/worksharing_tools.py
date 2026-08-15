@@ -7,7 +7,7 @@ and ownership side of collaborating in a shared central model.
 
 from typing import List, Optional
 
-from mcp.server.fastmcp import Context
+from mcp.server.mcpserver import Context
 
 from .utils import format_response
 

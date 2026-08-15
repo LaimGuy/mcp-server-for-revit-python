@@ -33,6 +33,8 @@ def main(argv=None):
 
     sub.add_parser("doctor", help="Diagnose the install end to end")
 
+    sub.add_parser("update", help="Re-copy the extension and refresh configs to this package version")
+
     uninstall = sub.add_parser("uninstall", help="Remove the pyRevit extension and client config")
     uninstall.add_argument("--yes", action="store_true", help="Answer yes to all prompts")
 
@@ -44,6 +46,9 @@ def main(argv=None):
     if args.cmd == "doctor":
         from .doctor import run_doctor
         return run_doctor()
+    if args.cmd == "update":
+        from .installer import run_update
+        return run_update(args)
     if args.cmd == "uninstall":
         from .installer import run_uninstall
         return run_uninstall(args)

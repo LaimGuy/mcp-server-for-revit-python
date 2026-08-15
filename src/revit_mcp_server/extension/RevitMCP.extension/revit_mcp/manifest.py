@@ -25,7 +25,25 @@ from pyrevit import routes
 
 logger = logging.getLogger(__name__)
 
-EXTENSION_VERSION = "0.2.0"
+def _read_extension_version():
+    """Version from the VERSION file one level up; single source of truth.
+
+    IronPython 2.7-safe. Falls back to 0.0.0 so a missing file degrades to an
+    obviously-wrong version instead of an import error killing every route.
+    """
+    import os
+    try:
+        path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "VERSION")
+        f = open(path, "r")
+        try:
+            return f.read().strip() or "0.0.0"
+        finally:
+            f.close()
+    except Exception:
+        return "0.0.0"
+
+
+EXTENSION_VERSION = _read_extension_version()
 
 MANIFEST = {
     "manifest_version": 1,

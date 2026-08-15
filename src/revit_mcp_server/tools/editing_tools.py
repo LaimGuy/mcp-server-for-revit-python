@@ -51,16 +51,28 @@ def register_editing_tools(mcp, revit_get, revit_post, revit_image=None):
 
     @mcp.tool()
     async def get_selected_elements(
+        limit: int = 100,
         ctx: Context = None,
     ) -> str:
         """Get details of elements currently selected in the Revit UI.
 
-        Returns IDs, categories, types, and key parameters of all elements
-        the user has selected in Revit. Returns an empty list if nothing
-        is selected (not an error).
+        Returns IDs, categories, types, and key parameters of the selected
+        elements. Returns an empty list if nothing is selected (not an error).
+        For selections larger than limit, the first N are returned with
+        count/truncated fields; ids beyond the limit are best fetched via
+        execute_revit_code with a category tally.
 
         Args:
+            limit: Maximum elements to detail (default 100).
             ctx: MCP context for logging
         """
         response = await revit_get("/selected_elements/", ctx)
+        if isinstance(response, dict) and isinstance(response.get("elements"), list):
+            total = response.get("count", len(response["elements"]))
+            if len(response["elements"]) > limit:
+                response["elements"] = response["elements"][:limit]
+                response["truncated"] = True
+                response["message"] = (
+                    "{} elements selected; showing first {}.".format(total, limit)
+                )
         return format_response(response)

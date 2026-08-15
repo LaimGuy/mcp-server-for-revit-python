@@ -8,14 +8,17 @@ import httpx
 from mcp.server.mcpserver import Image, Context
 
 from . import config
+from .http_client import get_client
 from .usage_log import LoggingMCPServer
 
 def _package_version():
+    from . import __version__
     try:
         from importlib.metadata import version
-        return version("revit-mcp")
+        # Falsy metadata (running from source) falls back to the package constant
+        return version("revit-mcp") or __version__
     except Exception:
-        return ""
+        return __version__
 
 
 # Create a generic MCP server for interacting with Revit. Transport settings
@@ -42,15 +45,16 @@ async def revit_post(endpoint: str, data: Dict[str, Any], ctx: Context = None, *
 async def revit_image(endpoint: str, ctx: Context = None) -> Union[Image, str]:
     """GET request that returns an Image object"""
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.get(f"{config.base_url()}{endpoint}")
+        response = await get_client().get(
+            f"{await config.base_url_async()}{endpoint}", timeout=60.0
+        )
 
-            if response.status_code == 200:
-                data = response.json()
-                image_bytes = base64.b64decode(data["image_data"])
-                return Image(data=image_bytes, format="png")
-            else:
-                return f"Error: {response.status_code} - {response.text}"
+        if response.status_code == 200:
+            data = response.json()
+            image_bytes = base64.b64decode(data["image_data"])
+            return Image(data=image_bytes, format="png")
+        else:
+            return f"Error: {response.status_code} - {response.text}"
     except httpx.TimeoutException:
         return "Error: Image export timed out after 60 seconds."
     except Exception as e:
@@ -80,15 +84,16 @@ async def _revit_call(method: str, endpoint: str, data: Dict = None, ctx: Contex
 
 async def _do_call(method: str, endpoint: str, data: Dict = None,
                    timeout: float = 30.0, params: Dict = None) -> Union[Dict, str]:
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        url = f"{config.base_url()}{endpoint}"
+    client = get_client()
+    url = f"{await config.base_url_async()}{endpoint}"
 
-        if method == "GET":
-            response = await client.get(url, params=params)
-        else:  # POST
-            response = await client.post(url, json=data, headers={"Content-Type": "application/json"})
+    if method == "GET":
+        response = await client.get(url, params=params, timeout=timeout)
+    else:  # POST
+        response = await client.post(url, json=data, timeout=timeout,
+                                     headers={"Content-Type": "application/json"})
 
-        return response.json() if response.status_code == 200 else f"Error: {response.status_code} - {response.text}"
+    return response.json() if response.status_code == 200 else f"Error: {response.status_code} - {response.text}"
 
 
 # Register all tools BEFORE the main block

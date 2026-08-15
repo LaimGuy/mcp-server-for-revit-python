@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
 """Utility functions for MCP tools"""
+import json
+
+# Wrapper keys that carry response plumbing, not data.
+_META_KEYS = ("status", "health", "success")
+
+
+def _dumps(payload):
+    """JSON for LLM consumption — never Python reprs."""
+    return json.dumps(payload, indent=2, default=str, ensure_ascii=False)
 
 
 def format_response(response):
@@ -29,11 +38,20 @@ def format_response(response):
             if "output" in response:  # Code execution responses
                 return response["output"]
             elif "message" in response:
+                # Keep the message AND the data riding alongside it — returning
+                # only the message silently discarded payloads (e.g. the entire
+                # elements list of get_selected_elements).
+                extras = dict((k, v) for k, v in response.items()
+                              if k != "message" and k not in _META_KEYS)
+                if extras:
+                    return response["message"] + "\n" + _dumps(extras)
                 return response["message"]
             elif "result" in response:
-                return str(response["result"])
+                r = response["result"]
+                return r if isinstance(r, str) else _dumps(r)
             elif "data" in response:
-                return str(response["data"])
+                d = response["data"]
+                return d if isinstance(d, str) else _dumps(d)
             elif status == "active":  # Status check responses
                 # Format status response nicely
                 status_parts = ["=== REVIT STATUS ==="]
@@ -61,12 +79,15 @@ def format_response(response):
                 # (e.g. model info, level lists). Surface the data instead of
                 # hiding it behind a generic message.
                 data_fields = dict((k, v) for k, v in response.items()
-                                   if k not in ("status", "health", "success"))
+                                   if k not in _META_KEYS)
                 if data_fields:
                     parts = []
                     for key in sorted(data_fields):
+                        value = data_fields[key]
+                        if isinstance(value, (dict, list)):
+                            value = _dumps(value)
                         parts.append("{}: {}".format(key.replace("_", " ").title(),
-                                                      data_fields[key]))
+                                                      value))
                     return "\n".join(parts)
                 return "Operation completed successfully"
         else:

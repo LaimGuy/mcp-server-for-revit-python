@@ -712,9 +712,11 @@ def register_your_routes(api):
         try:
             data = json.loads(request.data) if isinstance(request.data, str) else request.data
             
-            # Use a transaction for all model modifications
-            t = DB.Transaction(doc, "Modify Model via MCP")
-            t.Start()
+            # Use safe_tx from revit_mcp.utils - NEVER a bare DB.Transaction:
+            # a routine Revit warning goes modal and hangs the External Event
+            # (every later request then times out until a human dismisses it).
+            from revit_mcp.utils import safe_tx
+            t = safe_tx(doc, "Modify Model via MCP")
             try:
                 element_id = data.get("element_id")
                 new_value = data.get("new_value")
@@ -740,10 +742,10 @@ def register_your_routes(api):
 
 ### **Part 2: Create the MCP Tool Module**
 
-Next, create the corresponding tools for the MCP server. This is what the LLM will actually see and use. Create a new file in the `tools/` directory (e.g., `tools/your_tools.py`). This module will use the `revit_get` and `revit_post` helpers from `main.py`.
+Next, create the corresponding tools for the MCP server. This is what the LLM will actually see and use. Create a new file in the `src/revit_mcp_server/tools/` directory (e.g., `src/revit_mcp_server/tools/your_tools.py`). This module will use the `revit_get` and `revit_post` helpers from `main.py`.
 
 ```
-# In tools/your_tools.py
+# In src/revit_mcp_server/tools/your_tools.py
 # -*- coding: utf-8 -*-
 """Your tools for the MCP server."""
 
@@ -852,16 +854,18 @@ family_name = symbol.Family.Name
 type_name = symbol.Name
 
 # ✅ Use utility functions instead
-from revit_mcp.utils import get_family_name_safe, get_element_name_safe
+from revit_mcp.utils import safe_name, family_name as get_family_name
 
-family_name = get_family_name_safe(symbol)
-type_name = get_element_name_safe(symbol)
+fam_name = get_family_name(symbol)
+type_name = safe_name(symbol)
 ```
 
 ### **Available Utility Functions**
-- `get_element_name_safe(element)` - Safely get element name
-- `get_family_name_safe(family_symbol)` - Safely get family name
+- `safe_name(element)` - Safely get element name (returns None, never a placeholder)
+- `family_name(family_symbol)` - Safely get family name
 - `find_family_symbol_safely(doc, family_name, type_name)` - Find family symbols safely
+- `safe_tx(doc, name)` - Start a transaction with warnings suppressed (caller commits)
+- `model_elements(category, view=None)` - Bounded element collector (excludes Materials)
 
 ### **String Formatting**
 ```python

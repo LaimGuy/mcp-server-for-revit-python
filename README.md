@@ -36,9 +36,18 @@ Requirements: Windows, Revit 2021+, [pyRevit](https://pyrevitlabs.io/) installed
 
 5. In Claude Code, ask: *"What's the current Revit status?"*
 
-No cloning, no JSON editing, no absolute paths. To upgrade later, re-run the
-install command with `--refresh` after `uvx`. To remove everything:
+No cloning, no JSON editing, no absolute paths. To remove everything:
 `... revit-mcp uninstall`.
+
+## Updating
+
+```powershell
+uvx --refresh --from https://github.com/LaimGuy/mcp-server-for-revit-python/archive/refs/heads/master.zip revit-mcp update
+```
+
+Then restart Revit if the output says the extension changed. (`--refresh`
+makes uvx re-download the latest build; without it, uvx serves its cached
+copy.)
 
 ## How it works
 

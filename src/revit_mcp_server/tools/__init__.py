@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 #
 # Little is lost by cutting. Every removed tool wraps Revit API calls that
 # execute_revit_code can make directly in one payload, which is how this
-# workflow operates anyway (see CLAUDE.md). A trimmed tool is one env var away.
+# workflow operates anyway (see LLM.txt). A trimmed tool is one env var away.
 #
 # Set REVIT_MCP_ALL_TOOLS=1 to register the full surface.
 CORE_TOOLS = frozenset(

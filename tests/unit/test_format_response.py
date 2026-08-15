@@ -20,7 +20,7 @@ class TestSuccessResponses:
 
     def test_success_with_data(self):
         result = format_response({"status": "success", "data": [1, 2]})
-        assert result == "[1, 2]"
+        assert json.loads(result) == [1, 2]
 
     def test_success_fallback_message(self):
         # A bare success wrapper with no data fields gets the generic message
@@ -105,3 +105,35 @@ class TestStringPassthrough:
     def test_non_string_non_dict(self):
         result = format_response(123)
         assert result == "123"
+
+
+class TestPayloadPreservation:
+    """The message branch must carry its data, not discard it (utils.py fix)."""
+
+    def test_message_with_elements_survives(self):
+        resp = {
+            "status": "success",
+            "message": "2 elements currently selected",
+            "elements": [
+                {"id": 101, "category": "Walls"},
+                {"id": 102, "category": "Doors"},
+            ],
+            "total_count": 2,
+        }
+        result = format_response(resp)
+        assert result.startswith("2 elements currently selected")
+        payload = json.loads(result.split("\n", 1)[1])
+        assert payload["elements"][0]["id"] == 101
+        assert payload["total_count"] == 2
+
+    def test_message_only_stays_bare(self):
+        result = format_response({"status": "success", "message": "Done"})
+        assert result == "Done"
+
+    def test_nested_data_is_json_not_repr(self):
+        result = format_response({"data": [{"name": "L1"}, {"name": "L2"}]})
+        parsed = json.loads(result)
+        assert parsed[1]["name"] == "L2"
+
+    def test_result_string_passthrough(self):
+        assert format_response({"result": "plain text"}) == "plain text"

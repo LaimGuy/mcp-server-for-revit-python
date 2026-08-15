@@ -348,6 +348,33 @@ def run_install(args):
     return 0
 
 
+def run_update(args):
+    """Non-interactive refresh: re-copy the extension at this package version.
+
+    Client configs are left alone (they point at the same source URL, which
+    always serves the current release), so update is just extension + marker.
+    """
+    print(f"revit-mcp {__version__} - update")
+    target = os.path.join(extensions_dir(), EXTENSION_NAME)
+    old = _installed_version(target) if os.path.isdir(target) else None
+    if old == __version__:
+        print(f"  Already at v{__version__}.")
+        return 0
+    if not os.path.isdir(pyrevit_dir()):
+        print("pyRevit not found; run: revit-mcp install")
+        return 1
+    if os.path.isdir(target):
+        shutil.rmtree(target)
+    os.makedirs(extensions_dir(), exist_ok=True)
+    with resources.as_file(_bundled_extension()) as src:
+        shutil.copytree(src, target, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    with open(os.path.join(target, VERSION_MARKER), "w", encoding="utf-8") as f:
+        f.write(__version__ + "\n")
+    print(f"  Extension updated: v{old or 'none'} -> v{__version__}")
+    print("  Restart Revit to load the new version.")
+    return 0
+
+
 def run_uninstall(args):
     print(f"revit-mcp {__version__} - uninstall")
     target = os.path.join(extensions_dir(), EXTENSION_NAME)

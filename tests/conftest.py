@@ -21,6 +21,17 @@ class MockMCP:
         return decorator
 
 
+@pytest.fixture(autouse=True)
+def _fresh_http_client():
+    """A shared AsyncClient bound to a closed loop breaks the next test —
+    reset it around every test so each event loop gets its own."""
+    from revit_mcp_server import http_client
+
+    http_client.reset_client()
+    yield
+    http_client.reset_client()
+
+
 @pytest.fixture
 def mock_mcp():
     return MockMCP()

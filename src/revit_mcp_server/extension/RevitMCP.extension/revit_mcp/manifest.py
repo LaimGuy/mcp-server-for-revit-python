@@ -97,6 +97,11 @@ MANIFEST = {
     ],
 }
 
+# Generated tools (revit-mcp promote) — machine-managed between markers.
+# Each entry is a single MANIFEST["tools"].append({...}) statement.
+# >>> revit-mcp:generated-manifest:begin
+# >>> revit-mcp:generated-manifest:end
+
 
 def register_manifest_routes(api):
     @api.route("/tools/", methods=["GET"])

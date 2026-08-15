@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Code execution tools for the MCP server."""
+import time
 
 from mcp.server.mcpserver import Context
+from ..snippet_log import log_snippet
 from .utils import format_response
 
 
@@ -45,7 +47,12 @@ def register_code_execution_tools(mcp, revit_get, revit_post, revit_image=None):
             if ctx:
                 await ctx.info("Executing code: {}".format(description))
 
+            start = time.monotonic()
             response = await revit_post("/execute_code/", payload, ctx, timeout=60.0)
+            # Opt-in snippet capture (REVIT_MCP_SNIPPET_LOG=1) — hooked here,
+            # not in LoggingMCPServer, so the types-only privacy posture of
+            # the usage log stays intact.
+            log_snippet(code, description, response, time.monotonic() - start)
             return format_response(response)
 
         except (ConnectionError, ValueError, RuntimeError) as e:

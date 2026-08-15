@@ -35,10 +35,18 @@ CORE_TOOLS = frozenset(
 # element with no bounded or summary mode, so an ordinary MEP coordination view
 # blows the context window in a single call with no warning. Ask
 # execute_revit_code for a category tally plus only the ids actually needed.
+# (It now has summary=True and this is mitigated, but the trim stands: the
+# execute path covers it.)
+
+# Tools created by `revit-mcp promote`. Members survive the trim like
+# CORE_TOOLS. Maintained inside the generated fence below — machine-managed.
+# >>> revit-mcp:generated-tools:begin
+GENERATED_TOOLS = set()
+# >>> revit-mcp:generated-tools:end
 
 
 def _trim_tool_surface(mcp_server):
-    """Drop non-core tools from the registry. Best-effort, never fatal."""
+    """Drop non-core, non-generated tools from the registry. Never fatal."""
     if os.environ.get("REVIT_MCP_ALL_TOOLS", "").strip().lower() in (
         "1",
         "true",
@@ -57,13 +65,14 @@ def _trim_tool_surface(mcp_server):
         )
         return
 
-    missing = CORE_TOOLS - registered
+    keep = CORE_TOOLS | GENERATED_TOOLS
+    missing = keep - registered
     if missing:
         logger.warning(
             "Core tools never registered (name drift?): %s", ", ".join(sorted(missing))
         )
 
-    for name in sorted(registered - CORE_TOOLS):
+    for name in sorted(registered - keep):
         try:
             manager.remove_tool(name)
         except Exception:
@@ -147,6 +156,12 @@ def register_tools(mcp_server, revit_get_func, revit_post_func, revit_image_func
     register_hanger_tools(mcp_server, revit_get_func, revit_post_func)
     # --- End local additions ---
 
+    # === GENERATED (revit-mcp promote) — edits between markers are machine-managed ===
+    # Each entry is its own try/except: a bad generated module must not
+    # take down the builtin tools.
+    # >>> revit-mcp:generated:begin
+    # >>> revit-mcp:generated:end
+
     # Keep last: everything above registers, then the surface is trimmed to
-    # CORE_TOOLS so schemas stay eager on the client.
+    # CORE_TOOLS | GENERATED_TOOLS so schemas stay eager on the client.
     _trim_tool_surface(mcp_server)

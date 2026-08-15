@@ -36,14 +36,34 @@ def _log_path(now):
     )
 
 
-def log_usage(tool_name, kwargs, ok, duration_s, error_type=None):
+def classify_result(result):
+    """Truthful route-level outcome, derived from the tool's return value.
+
+    Route failures come back as strings ("Error: 500 - ...") or formatted
+    error blocks, never exceptions — so `ok` alone mislabels them. Heuristic:
+    a legitimate output that happens to start with "Error:" logs a false
+    negative; accepted, this only feeds stats ranking.
+    """
+    if isinstance(result, str):
+        return not (
+            result.startswith("Error:") or "=== ERROR DETAILS ===" in result
+        )
+    if isinstance(result, dict):
+        return not result.get("error")
+    return True
+
+
+def log_usage(tool_name, kwargs, ok, duration_s, error_type=None, route_ok=None):
     if not _enabled():
         return
     try:
+        from .runtime import SESSION_ID
+
         now = datetime.now(timezone.utc)
         record = {
             "v": SCHEMA_VERSION,
             "ts": now.isoformat(timespec="seconds"),
+            "session": SESSION_ID,
             "tool": tool_name,
             "args_shape": {
                 k: type(v).__name__ for k, v in kwargs.items() if k != "ctx"
@@ -51,6 +71,8 @@ def log_usage(tool_name, kwargs, ok, duration_s, error_type=None):
             "ok": ok,
             "duration_ms": round(duration_s * 1000),
         }
+        if route_ok is not None:
+            record["route_ok"] = route_ok
         if error_type:
             record["error_type"] = error_type
         path = _log_path(now)
@@ -77,8 +99,11 @@ class LoggingMCPServer(MCPServer):
             async def logged(*f_args, **f_kwargs):
                 start = time.monotonic()
                 error_type = None
+                route_ok = None
                 try:
-                    return await fn(*f_args, **f_kwargs)
+                    result = await fn(*f_args, **f_kwargs)
+                    route_ok = classify_result(result)
+                    return result
                 except Exception as exc:
                     error_type = type(exc).__name__
                     raise
@@ -89,6 +114,7 @@ class LoggingMCPServer(MCPServer):
                         error_type is None,
                         time.monotonic() - start,
                         error_type,
+                        route_ok,
                     )
 
             return register(logged)

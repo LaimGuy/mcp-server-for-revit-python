@@ -89,6 +89,12 @@ def register_routes():
         register_support_naming_routes(api)
         # --- End local additions ---
 
+        # === GENERATED (revit-mcp promote) — edits between markers are machine-managed ===
+        # Each generated entry is its own try/except that logs and continues:
+        # one bad generated module must never take down the builtin routes.
+        # >>> revit-mcp:generated:begin
+        # >>> revit-mcp:generated:end
+
         # Manifest last, so it can describe everything that registered above
         from revit_mcp.manifest import register_manifest_routes
 

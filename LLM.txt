@@ -882,6 +882,38 @@ message = "Processing {} elements".format(count)
 
 The modular architecture provides several extension points:
 
+## **The Learning Loop** | How snippets become tools
+
+This is the intended path from ad-hoc code to a permanent named tool. It
+replaces the manual ritual below for promoted snippets (the ritual remains
+valid for hand-written tools).
+
+1. **Iterate** with `execute_revit_code` as usual. Set `REVIT_MCP_SNIPPET_LOG=1`
+   in the MCP server's environment to capture every snippet (code, description,
+   outcome) to `%LOCALAPPDATA%\revit-mcp\snippets\`. Capture is opt-in
+   because it stores code values.
+2. **Converge**: when a snippet works and gets reused, `revit-mcp stats` will
+   list it as a promotion candidate (3+ runs ending in success, or a
+   fail->success arc within one session).
+3. **Promote**: `revit-mcp promote <hash>` writes `promotions/<name>.json`
+   pre-filled with the code. Edit the spec: verb-first snake_case name,
+   extract the varying literals into `params`, set `mutates_model`, adapt
+   `body_py2` to use the params and end by assigning a dict to `result`.
+4. **Apply**: `revit-mcp promote --apply promotions/<name>.json` generates the
+   route module, tool module, registrations (fenced, failure-isolated),
+   manifest entry with `origin: "generated"`, and a unit test - all from the
+   one spec, so the two halves cannot drift.
+5. **Verify + ship**: `uv run pytest tests/unit tests/test_extension_py2_guard.py`,
+   then `revit-mcp update` and restart Revit. The tool now appears in
+   `GET /revit_mcp/tools/` and survives the trimmed surface automatically.
+
+Rules that make this safe (see docs/CONTRACTS.md): tool names are permanent
+once tagged; generated registrations are try/except-isolated so a bad module
+cannot kill builtin routes; machine edits stay between the
+`>>> revit-mcp:generated` markers.
+
+---
+
 ### **Adding New Route Categories**
 1. Create new module in `src/revit_mcp_server/extension/RevitMCP.extension/revit_mcp/`
 2. Register in `src/revit_mcp_server/extension/RevitMCP.extension/startup.py`

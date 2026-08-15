@@ -66,6 +66,62 @@ One JSON line per MCP tool call, written to
 - This file is the input for future usage aggregation and the graduation
   pipeline. Additive schema changes only; `v` bumps on breaking changes.
 
+## Snippet log (v1) — opt-in
+
+Unlike the usage log, this sink stores **actual code and descriptions** passed
+to `execute_revit_code`. It is therefore **opt-in**: `REVIT_MCP_SNIPPET_LOG=1`.
+One JSON line per call to `%LOCALAPPDATA%\revit-mcp\snippets\snippets-YYYYMM.jsonl`:
+
+```json
+{"v": 1, "ts": "...", "session": "a1b2c3d4e5f6", "hash": "9f2c4e1a8b7d3f05",
+ "code": "...", "description": "...", "ok": true, "route_ok": true,
+ "duration_ms": 840, "output_chars": 212}
+```
+
+- `hash` = sha256 of whitespace-normalized code, first 16 hex chars — stable
+  across whitespace-only retries so retried logic clusters under one key.
+- `route_ok` is the truthful outcome (route errors come back as strings, not
+  exceptions, so exception-based `ok` alone is insufficient).
+- Additive-only; `v` bumps on breaking changes. Never merged into the usage
+  log — that file's types-only rule is permanent.
+
+## Usage log — additive v1 fields (added in 0.5.0)
+
+- `route_ok`: outcome derived from the tool's return value (heuristic: error
+  strings/blocks and error dicts are failures). A legitimate output starting
+  with "Error:" logs a false negative; accepted, affects stats ranking only.
+- `session`: per-server-process id; lets analysis detect fail→fail→success
+  convergence within one client session.
+
+## Promotion spec (v1)
+
+Input to `revit-mcp promote --apply`. One spec generates BOTH halves of a tool
+(route + MCP wrapper) plus registrations, manifest entry, and a smoke test —
+single-sourcing the parameter list so the halves cannot drift.
+
+```json
+{"spec_version": 1, "name": "count_duct_fittings", "description": "...",
+ "params": [{"name": "level", "type": "str", "default": null,
+             "required": false, "doc": "..."}],
+ "route": {"method": "POST", "path": "/count_duct_fittings/"},
+ "mutates_model": false, "body_py2": "...", "result_keys": ["count"],
+ "source_hash": "9f2c4e1a8b7d3f05"}
+```
+
+Validation refuses: non-verb-first names, manifest/module collisions, bare
+`DB.Transaction` in mutating bodies (must use `safe_tx`), py3-only syntax in
+`body_py2`. Generated tools carry `origin: "generated"` and follow the same
+naming permanence once tagged.
+
+## Generated-code fences
+
+Machine-managed regions are delimited by `# >>> revit-mcp:generated*:begin/end`
+markers in `startup.py`, `tools/__init__.py`, and `manifest.py`. Only
+`revit-mcp promote` edits between markers (atomic writes, idempotent); manual
+edits belong outside. Each generated registration is individually try/except-
+isolated: a broken generated module logs an error and is skipped, never taking
+builtin routes or tools down with it.
+
 ## Connection
 
 - Base URL: `http://127.0.0.1:48884/revit_mcp/` (second Revit instance:

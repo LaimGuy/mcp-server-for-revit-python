@@ -1,0 +1,14 @@
+{
+  "spec_version": 1,
+  "name": "count_views_in_model",
+  "description": "Count all views in the current Revit model.",
+  "params": [],
+  "route": {
+    "method": "POST",
+    "path": "/count_views_in_model/"
+  },
+  "mutates_model": false,
+  "body_py2": "views = DB.FilteredElementCollector(doc).OfClass(DB.View).ToElements()\ncount = len(views)\nresult = {\"count\": count, \"message\": \"{} views in model\".format(count)}",
+  "result_keys": ["count", "message"],
+  "source_hash": "03c1021e52b4a93e"
+}

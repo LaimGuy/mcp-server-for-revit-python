@@ -35,6 +35,15 @@ def main(argv=None):
 
     sub.add_parser("update", help="Re-copy the extension and refresh configs to this package version")
 
+    stats = sub.add_parser("stats", help="Usage and snippet telemetry, with promotion candidates")
+    stats.add_argument("--days", type=int, default=30)
+
+    promote = sub.add_parser("promote", help="Scaffold a named tool from a captured snippet")
+    promote.add_argument("target", nargs="?", help="Snippet hash from `revit-mcp stats`")
+    promote.add_argument("--from-file", dest="from_file", help="Seed the spec from a .py snippet file")
+    promote.add_argument("--apply", dest="apply_spec", help="Generate artifacts from a promotion spec JSON")
+    promote.add_argument("--force", action="store_true", help="Overwrite existing generated files")
+
     uninstall = sub.add_parser("uninstall", help="Remove the pyRevit extension and client config")
     uninstall.add_argument("--yes", action="store_true", help="Answer yes to all prompts")
 
@@ -49,6 +58,12 @@ def main(argv=None):
     if args.cmd == "update":
         from .installer import run_update
         return run_update(args)
+    if args.cmd == "stats":
+        from .stats import run_stats
+        return run_stats(days=args.days)
+    if args.cmd == "promote":
+        from .promote import run_promote
+        return run_promote(args)
     if args.cmd == "uninstall":
         from .installer import run_uninstall
         return run_uninstall(args)

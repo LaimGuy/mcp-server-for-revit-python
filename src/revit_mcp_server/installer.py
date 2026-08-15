@@ -220,6 +220,33 @@ def wire_claude(assume_yes):
 CODEX_SECTION_NAMES = ("mcp_servers.revit", "mcp_servers.revitmcp")
 
 
+def _toml_table_present(lines, name):
+    """True if [name] or any [name.sub...] table exists."""
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "[{}]".format(name) or stripped.startswith("[{}.".format(name)):
+            return True
+    return False
+
+
+def _remove_toml_table(lines, name):
+    """Remove [name] AND every [name.sub...] table.
+
+    Leaving a sub-table behind (e.g. [mcp_servers.x.tools.y]) implicitly
+    recreates the parent table with no command/url, which Codex rejects as
+    'invalid transport'.
+    """
+    out, skipping = [], False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("["):
+            header = stripped.strip("[]")
+            skipping = header == name or header.startswith(name + ".")
+        if not skipping:
+            out.append(line)
+    return out
+
+
 def _codex_toml_snippet():
     uvx = _uvx_path().replace("\\", "\\\\")
     return (
@@ -241,15 +268,13 @@ def wire_codex(assume_yes):
         lines = f.read().splitlines()
 
     stale = [name for name in CODEX_SECTION_NAMES
-             if any(line.strip() == f"[{name}]" for line in lines)]
+             if _toml_table_present(lines, name)]
     if stale:
         if not _confirm(f"Codex already has {stale}; replace with the packaged server?", assume_yes):
             print("  Left Codex config unchanged.")
             return
         for name in stale:
-            start, end = _section_bounds(lines, name)
-            if start is not None:
-                del lines[start:end]
+            lines = _remove_toml_table(lines, name)
     elif not _confirm("Add the server to Codex (~/.codex/config.toml)?", assume_yes):
         print("  Skipped. Snippet for later:")
         print("    " + snippet.replace("\n", "\n    "))

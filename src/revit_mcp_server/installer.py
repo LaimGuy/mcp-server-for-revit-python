@@ -43,7 +43,12 @@ def _confirm(question, assume_yes):
     if not sys.stdin.isatty():
         print(f"  {question} -> no (non-interactive; pass --yes to accept)")
         return False
-    answer = input(f"  {question} [Y/n] ").strip().lower()
+    try:
+        answer = input(f"  {question} [Y/n] ").strip().lower()
+    except EOFError:
+        # isatty() can lie under process runners; EOF means nobody is answering
+        print("  -> no (stdin closed; pass --yes to accept)")
+        return False
     return answer in ("", "y", "yes")
 
 

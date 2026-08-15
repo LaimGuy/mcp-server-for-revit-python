@@ -45,7 +45,9 @@ def log_usage(tool_name, kwargs, ok, duration_s, error_type=None):
             "v": SCHEMA_VERSION,
             "ts": now.isoformat(timespec="seconds"),
             "tool": tool_name,
-            "args_shape": {k: type(v).__name__ for k, v in kwargs.items()},
+            "args_shape": {
+                k: type(v).__name__ for k, v in kwargs.items() if k != "ctx"
+            },
             "ok": ok,
             "duration_ms": round(duration_s * 1000),
         }

@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 """Tests for the installer's config-surgery helpers."""
+import os
+
+import pytest
+
+from revit_mcp_server import installer
 from revit_mcp_server.installer import (
+    _codex_revit_has_env,
+    _codex_toml_snippet,
     _remove_toml_table,
     _toml_table_present,
     get_ini_value,
     set_ini_value,
+    wire_codex,
 )
 
 CODEX_CONFIG = """\
@@ -82,3 +90,52 @@ class TestIniSurgery:
         lines = ["[routes]", "enabled = true"]
         _, changed = set_ini_value(lines, "routes", "enabled", "true")
         assert not changed
+
+
+class TestCaptureWiring:
+    def test_snippet_includes_env_when_capture(self):
+        assert "REVIT_MCP_SNIPPET_LOG" in _codex_toml_snippet(capture=True)
+        assert "REVIT_MCP_SNIPPET_LOG" not in _codex_toml_snippet(capture=False)
+
+    def test_env_detection(self):
+        lines = ["[mcp_servers.revit]", 'command = "uvx"',
+                 'env = { "REVIT_MCP_SNIPPET_LOG" = "1" }']
+        assert _codex_revit_has_env(lines)
+        assert not _codex_revit_has_env(lines[:2])
+
+    def test_wire_codex_inserts_env_preserving_subtables(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        cfg = tmp_path / ".codex" / "config.toml"
+        cfg.parent.mkdir()
+        cfg.write_text(
+            "[mcp_servers.revit]\n"
+            'command = "uvx"\n'
+            'args = ["--from", "x", "revit-mcp"]\n'
+            "\n"
+            "[mcp_servers.revit.tools.execute_revit_code]\n"
+            'approval_mode = "approve"\n',
+            encoding="utf-8",
+        )
+        wire_codex(assume_yes=True, capture=True)
+        text = cfg.read_text(encoding="utf-8")
+        assert 'env = { "REVIT_MCP_SNIPPET_LOG" = "1" }' in text
+        # the user's per-tool approval survived (a full replace would drop it)
+        assert "[mcp_servers.revit.tools.execute_revit_code]" in text
+        # env landed inside the base table, before the sub-table
+        assert text.index("REVIT_MCP_SNIPPET_LOG") < text.index("revit.tools")
+
+    def test_wire_codex_idempotent_when_env_present(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        cfg = tmp_path / ".codex" / "config.toml"
+        cfg.parent.mkdir()
+        original = (
+            "[mcp_servers.revit]\n"
+            'command = "uvx"\n'
+            'args = ["--from", "x", "revit-mcp"]\n'
+            'env = { "REVIT_MCP_SNIPPET_LOG" = "1" }\n'
+        )
+        cfg.write_text(original, encoding="utf-8")
+        wire_codex(assume_yes=True, capture=True)
+        assert cfg.read_text(encoding="utf-8") == original

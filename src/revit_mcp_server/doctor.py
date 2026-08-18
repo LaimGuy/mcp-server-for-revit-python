@@ -120,26 +120,36 @@ def run_doctor():
                 "extension predates the manifest - re-run revit-mcp install and restart Revit")
 
     # 8. Client configs
+    from .installer import CAPTURE_ENV, _codex_revit_has_env
+
     claude_json = os.path.join(os.path.expanduser("~"), ".claude.json")
-    claude_ok = False
+    claude_ok, claude_capture = False, False
     try:
         with open(claude_json, "r", encoding="utf-8") as f:
-            claude_ok = "revit" in (json.load(f).get("mcpServers") or {})
+            revit_entry = (json.load(f).get("mcpServers") or {}).get("revit")
+        claude_ok = revit_entry is not None
+        claude_capture = claude_ok and CAPTURE_ENV in (revit_entry.get("env") or {})
     except (OSError, ValueError):
         pass
+    claude_state = "configured (user scope{})".format(
+        ", capture on" if claude_capture else "") if claude_ok else "not in ~/.claude.json mcpServers"
     _report("PASS" if claude_ok else "WARN",
-            "Claude Code: 'revit' " + ("configured (user scope)" if claude_ok else "not in ~/.claude.json mcpServers"),
+            "Claude Code: 'revit' " + claude_state,
             None if claude_ok else "run: revit-mcp install  (or: claude mcp add revit -s user -- uvx --from <source> revit-mcp)")
 
     codex_toml = os.path.join(os.path.expanduser("~"), ".codex", "config.toml")
-    codex_ok = False
+    codex_ok, codex_capture = False, False
     try:
         with open(codex_toml, "r", encoding="utf-8") as f:
-            codex_ok = "[mcp_servers.revit]" in f.read()
+            codex_lines = f.read().splitlines()
+        codex_ok = any(l.strip() == "[mcp_servers.revit]" for l in codex_lines)
+        codex_capture = codex_ok and _codex_revit_has_env(codex_lines)
     except OSError:
         pass
+    codex_state = "configured{}".format(
+        " (capture on)" if codex_capture else "") if codex_ok else "not in ~/.codex/config.toml"
     _report("PASS" if codex_ok else "WARN",
-            "Codex: [mcp_servers.revit] " + ("configured" if codex_ok else "not in ~/.codex/config.toml"),
+            "Codex: [mcp_servers.revit] " + codex_state,
             None if codex_ok else "run: revit-mcp install --client codex")
 
     return _summary()

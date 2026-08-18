@@ -199,8 +199,14 @@ def _server_command():
     return [_uvx_path(), "--from", SOURCE_URL, "revit-mcp"]
 
 
-def wire_claude(assume_yes):
-    cmd = ["claude", "mcp", "add", "revit", "-s", "user", "--"] + _server_command()
+CAPTURE_ENV = "REVIT_MCP_SNIPPET_LOG"
+
+
+def wire_claude(assume_yes, capture=False):
+    cmd = ["claude", "mcp", "add", "revit", "-s", "user"]
+    if capture:
+        cmd += ["-e", f"{CAPTURE_ENV}=1"]
+    cmd += ["--"] + _server_command()
     printable = " ".join(cmd)
     if shutil.which("claude") is None:
         print("  Claude Code CLI not found on PATH. Run this yourself once it is installed:")
@@ -209,9 +215,14 @@ def wire_claude(assume_yes):
     if not _confirm("Register with Claude Code (claude mcp add revit -s user)?", assume_yes):
         print(f"  Skipped. To do it later:\n    {printable}")
         return
+    # Remove first so re-running install upgrades an existing entry (e.g. to
+    # gain the capture env). Failure just means it wasn't there yet.
+    subprocess.run(["claude", "mcp", "remove", "revit", "-s", "user"],
+                   capture_output=True, text=True)
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode == 0:
-        print("  Claude Code: registered MCP server 'revit' (user scope).")
+        note = " with snippet capture" if capture else ""
+        print(f"  Claude Code: registered MCP server 'revit' (user scope){note}.")
     else:
         print(f"  claude mcp add failed ({result.returncode}): {result.stderr.strip() or result.stdout.strip()}")
         print(f"  Run it manually:\n    {printable}")
@@ -247,18 +258,32 @@ def _remove_toml_table(lines, name):
     return out
 
 
-def _codex_toml_snippet():
+def _codex_env_line():
+    return 'env = {{ "{}" = "1" }}'.format(CAPTURE_ENV)
+
+
+def _codex_toml_snippet(capture=False):
     uvx = _uvx_path().replace("\\", "\\\\")
-    return (
+    snippet = (
         "[mcp_servers.revit]\n"
         f'command = "{uvx}"\n'
         f'args = ["--from", "{SOURCE_URL}", "revit-mcp"]\n'
     )
+    if capture:
+        snippet += _codex_env_line() + "\n"
+    return snippet
 
 
-def wire_codex(assume_yes):
+def _codex_revit_has_env(lines):
+    start, end = _section_bounds(lines, "mcp_servers.revit")
+    if start is None:
+        return False
+    return any(CAPTURE_ENV in lines[i] for i in range(start + 1, end))
+
+
+def wire_codex(assume_yes, capture=False):
     config_path = os.path.join(os.path.expanduser("~"), ".codex", "config.toml")
-    snippet = _codex_toml_snippet()
+    snippet = _codex_toml_snippet(capture)
     if not os.path.isfile(config_path):
         print("  Codex config not found; if you use Codex, add to ~/.codex/config.toml:")
         print("    " + snippet.replace("\n", "\n    "))
@@ -266,6 +291,26 @@ def wire_codex(assume_yes):
 
     with open(config_path, "r", encoding="utf-8") as f:
         lines = f.read().splitlines()
+
+    current_ok = _toml_table_present(lines, "mcp_servers.revit")
+    if current_ok and not _toml_table_present(lines, "mcp_servers.revitmcp"):
+        # Entry exists. Upgrade in place if capture wiring is the only gap —
+        # a full replace would discard the user's per-tool approval
+        # sub-tables, which survive an env insertion.
+        if capture and not _codex_revit_has_env(lines):
+            if _confirm("Enable snippet capture in the existing Codex entry?", assume_yes):
+                start, end = _section_bounds(lines, "mcp_servers.revit")
+                insert_at = end
+                for i in range(start + 1, end):
+                    if lines[i].strip().startswith("args"):
+                        insert_at = i + 1
+                        break
+                lines.insert(insert_at, _codex_env_line())
+                _write_ini_lines(config_path, lines)
+                print("  Codex: snippet capture enabled on existing entry.")
+        else:
+            print("  Codex: [mcp_servers.revit] already configured.")
+        return
 
     stale = [name for name in CODEX_SECTION_NAMES
              if _toml_table_present(lines, name)]
@@ -333,10 +378,16 @@ def run_install(args):
         _write_ini_lines(ini_path(), lines)
 
     print("[4/4] MCP clients")
+    capture = False
+    if args.client != "none":
+        print("  Snippet capture records the code passed to execute_revit_code")
+        print("  to a local file (nothing leaves this machine). It feeds the")
+        print("  tool-improvement pipeline (revit-mcp stats / promote).")
+        capture = _confirm("Enable snippet capture?", args.yes)
     if args.client in ("claude", "both"):
-        wire_claude(args.yes)
+        wire_claude(args.yes, capture)
     if args.client in ("codex", "both"):
-        wire_codex(args.yes)
+        wire_codex(args.yes, capture)
     if args.client == "none":
         print("  Skipped (--client none). Server command:")
         print("    " + " ".join(_server_command()))
@@ -372,7 +423,33 @@ def run_update(args):
         f.write(__version__ + "\n")
     print(f"  Extension updated: v{old or 'none'} -> v{__version__}")
     print("  Restart Revit to load the new version.")
+    _report_missing_capture()
     return 0
+
+
+def _report_missing_capture():
+    """Update never edits client configs; it just points at install."""
+    missing = []
+    claude_json = os.path.join(os.path.expanduser("~"), ".claude.json")
+    try:
+        with open(claude_json, "r", encoding="utf-8") as f:
+            revit = (json.load(f).get("mcpServers") or {}).get("revit")
+        if revit is not None and CAPTURE_ENV not in (revit.get("env") or {}):
+            missing.append("Claude Code")
+    except (OSError, ValueError):
+        pass
+    codex_toml = os.path.join(os.path.expanduser("~"), ".codex", "config.toml")
+    try:
+        with open(codex_toml, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        if _toml_table_present(lines, "mcp_servers.revit") and not _codex_revit_has_env(lines):
+            missing.append("Codex")
+    except OSError:
+        pass
+    if missing:
+        print("  Snippet capture is not wired for: {}. To enable, re-run:".format(
+            ", ".join(missing)))
+        print("    {} --from {} revit-mcp install".format(_uvx_path(), SOURCE_URL))
 
 
 def run_uninstall(args):

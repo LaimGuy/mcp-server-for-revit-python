@@ -415,6 +415,11 @@ def run_install(args):
         print("  to a local file (nothing leaves this machine). It feeds the")
         print("  tool-improvement pipeline (revit-mcp stats / promote).")
         capture = _confirm("Enable snippet capture?", args.yes)
+        # The authoritative capture switch: read by the Revit-side extension
+        # per call (client sandboxes can block the MCP server's own writes,
+        # so capture happens inside Revit since 0.8.0).
+        from . import local_config
+        local_config.save(snippet_capture=capture)
     if args.client in ("claude", "both"):
         wire_claude(args.yes, capture)
     if args.client in ("codex", "both"):

@@ -42,17 +42,24 @@ def register_code_execution_tools(mcp, revit_get, revit_post, revit_image=None):
         read the traceback's line number against the script you sent.
         """
         try:
-            payload = {"code": code, "description": description}
+            from ..runtime import SESSION_ID
+
+            payload = {"code": code, "description": description,
+                       "session": SESSION_ID}
 
             if ctx:
                 await ctx.info("Executing code: {}".format(description))
 
             start = time.monotonic()
             response = await revit_post("/execute_code/", payload, ctx, timeout=60.0)
-            # Opt-in snippet capture (REVIT_MCP_SNIPPET_LOG=1) — hooked here,
-            # not in LoggingMCPServer, so the types-only privacy posture of
-            # the usage log stays intact.
-            log_snippet(code, description, response, time.monotonic() - start)
+            # Snippet capture happens inside Revit when the extension supports
+            # it (response carries captured=true) — client sandboxes can block
+            # THIS process's writes but never Revit's. The local fallback
+            # covers older extensions; env-gated (REVIT_MCP_SNIPPET_LOG=1) and
+            # hooked here, not in LoggingMCPServer, so the types-only privacy
+            # posture of the usage log stays intact.
+            if not (isinstance(response, dict) and response.get("captured")):
+                log_snippet(code, description, response, time.monotonic() - start)
             return format_response(response)
 
         except (ConnectionError, ValueError, RuntimeError) as e:

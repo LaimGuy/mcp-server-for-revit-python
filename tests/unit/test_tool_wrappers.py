@@ -200,9 +200,12 @@ class TestCodeExecutionTools:
         result = await self.tools["execute_revit_code"](
             code="print('hello')", ctx=None
         )
+        from revit_mcp_server.runtime import SESSION_ID
+
         self.mock_post.assert_called_once_with(
             "/execute_code/",
-            {"code": "print('hello')", "description": "Code execution"},
+            {"code": "print('hello')", "description": "Code execution",
+             "session": SESSION_ID},
             None,
             timeout=60.0,
         )

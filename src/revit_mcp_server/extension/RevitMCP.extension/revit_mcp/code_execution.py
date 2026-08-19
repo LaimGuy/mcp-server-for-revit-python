@@ -5,9 +5,11 @@ Handles direct execution of IronPython code in Revit context.
 """
 from pyrevit import routes, revit, DB
 from .utils import safe_tx, suppress_warnings, model_elements, safe_name, family_name
+from . import snippet_capture
 import json
 import logging
 import sys
+import time
 import traceback
 from StringIO import StringIO
 
@@ -39,6 +41,7 @@ def register_code_execution_routes(api):
             )
             code_to_execute = data.get("code", "")
             description = data.get("description", "Code execution")
+            session = data.get("session")
 
             if not code_to_execute:
                 return routes.make_response(
@@ -76,6 +79,7 @@ def register_code_execution_routes(api):
                 ),
             }
 
+            started = time.time()
             try:
                 exec(code_to_execute, namespace)
 
@@ -83,10 +87,18 @@ def register_code_execution_routes(api):
                 output = captured_output.getvalue()
                 captured_output.close()
 
+                # Capture here, in the Revit process: client sandboxes block
+                # the MCP server's own writes (see snippet_capture docstring).
+                wrote = snippet_capture.capture(
+                    code_to_execute, description, session, True,
+                    (time.time() - started) * 1000.0, len(output),
+                )
+
                 return routes.make_response(
                     data={
                         "status": "success",
                         "description": description,
+                        "captured": wrote,
                         "output": (
                             output
                             if output
@@ -145,11 +157,17 @@ def register_code_execution_routes(api):
                 # script was 96% of that - so 10% of calls produced 32% of all
                 # bytes returned. The caller already has the script in context;
                 # the traceback's line number is the only new information.
+                wrote = snippet_capture.capture(
+                    code_to_execute, description, session, False,
+                    (time.time() - started) * 1000.0, len(partial_output),
+                )
+
                 response_data = {
                     "status": "error",
                     "error": enhanced_message,
                     "error_type": error_type,
                     "traceback": error_traceback,
+                    "captured": wrote,
                 }
 
                 if partial_output:

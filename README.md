@@ -95,6 +95,16 @@ duration. No values, paths, or model data are recorded, and nothing leaves the
 machine. This feeds future tooling that identifies which tools are worth
 promoting to hardcoded implementations. Opt out with `REVIT_MCP_USAGE_LOG=0`.
 
+## Team telemetry (optional)
+
+With snippet capture on, `revit-mcp report` copies each machine's local
+telemetry to `<team folder>\<username>\` — point it at a synced
+SharePoint/OneDrive folder or UNC share with `revit-mcp report --to <path>`
+(the installer also offers this, plus a daily scheduled task). The collector
+machine runs `revit-mcp stats` and sees candidates ranked by how many people
+converged on the same snippet. Data never leaves company storage; the SQLite
+db is derived locally and never shared.
+
 ## Manual client configuration
 
 `revit-mcp install` does this for you; for reference:

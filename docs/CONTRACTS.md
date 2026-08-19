@@ -131,6 +131,13 @@ schema changes involved.
 
 Schema changes are additive; `meta.db_version` bumps on breaking changes.
 
+Team drop layout (v1): `<team folder>/<username>/{usage,snippets}/*.jsonl`,
+written only by `revit-mcp report` on each user's machine (mirror copy, each
+user owns exactly their folder). The team folder path is per-machine config
+(`%LOCALAPPDATA%\revit-mcp\config.json`), never a constant in this repo —
+internal paths stay out of public source. The SQLite db is never placed on
+the share.
+
 ## Generated-code fences
 
 Machine-managed regions are delimited by `# >>> revit-mcp:generated*:begin/end`

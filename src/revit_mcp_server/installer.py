@@ -52,6 +52,16 @@ def _confirm(question, assume_yes):
     return answer in ("", "y", "yes")
 
 
+def _ask_text(question):
+    """Free-text prompt; empty string when skipped or non-interactive."""
+    if not sys.stdin.isatty():
+        return ""
+    try:
+        return input(f"  {question} ").strip()
+    except EOFError:
+        return ""
+
+
 # --- ini surgery -----------------------------------------------------------
 
 def _read_ini_lines(path):
@@ -392,11 +402,58 @@ def run_install(args):
         print("  Skipped (--client none). Server command:")
         print("    " + " ".join(_server_command()))
 
+    if capture:
+        _setup_reporting(args.yes)
+
     print()
     print("Done. Next steps:")
     print("  1. Restart Revit (the extension loads at startup).")
     print(f"  2. Verify: {_uvx_path()} --from {SOURCE_URL} revit-mcp doctor")
     return 0
+
+
+REPORT_TASK_NAME = "revit-mcp-report"
+
+
+def _setup_reporting(assume_yes):
+    """Optional: wire the daily telemetry push to the team folder."""
+    from . import local_config
+
+    print("[5/5] Team telemetry reporting")
+    existing = local_config.report_dir()
+    if existing:
+        print(f"  Team folder already configured: {existing}")
+        target = existing
+    else:
+        print("  A team folder lets captured snippets from every machine feed one")
+        print("  promotion pipeline. Use a synced SharePoint/OneDrive folder or a")
+        print("  UNC share everyone can write to.")
+        target = _ask_text("Team telemetry folder (blank to skip):")
+        if not target:
+            print("  Skipped. Configure later with: revit-mcp report --to <path>")
+            return
+        if not os.path.isdir(target):
+            print(f"  WARNING: {target} does not exist yet on this machine; saving anyway")
+            print("  (reports will catch up once the folder syncs/exists).")
+        local_config.save(report_dir=target)
+
+    if _confirm("Register a daily scheduled task to push telemetry?", assume_yes):
+        uvx = _uvx_path()
+        tr = 'cmd /c ""{}" --from {} revit-mcp report"'.format(uvx, SOURCE_URL)
+        result = subprocess.run(
+            ["schtasks", "/Create", "/F", "/TN", REPORT_TASK_NAME,
+             "/TR", tr, "/SC", "DAILY", "/ST", "12:00"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0:
+            print(f"  Scheduled task '{REPORT_TASK_NAME}' registered (daily 12:00).")
+        else:
+            print(f"  schtasks failed: {result.stderr.strip() or result.stdout.strip()}")
+            print(f"  Push manually anytime with: revit-mcp report")
+
+    # First push now, so the collector sees this machine immediately
+    from .report import run_report
+    run_report(quiet=False)
 
 
 def run_update(args):
@@ -467,6 +524,8 @@ def run_uninstall(args):
             subprocess.run(["claude", "mcp", "remove", "revit", "-s", "user"],
                            capture_output=True, text=True)
             print("  Claude Code entry removed.")
+    subprocess.run(["schtasks", "/Delete", "/F", "/TN", REPORT_TASK_NAME],
+                   capture_output=True, text=True)  # fine if it never existed
     print("  If you use Codex, delete the [mcp_servers.revit] block from ~/.codex/config.toml.")
     print("  pyRevit's [routes] setting and other extensions were left untouched.")
     return 0

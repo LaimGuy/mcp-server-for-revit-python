@@ -26,8 +26,22 @@ def _pct(part, whole):
     return "{:.0f}%".format(100.0 * part / whole) if whole else "-"
 
 
+def _team_dirs():
+    """Every person-folder in the configured team drop (see report.py)."""
+    from . import local_config
+
+    root = local_config.report_dir()
+    if not root or not os.path.isdir(root):
+        return []
+    return [
+        os.path.join(root, name)
+        for name in sorted(os.listdir(root))
+        if os.path.isdir(os.path.join(root, name))
+    ]
+
+
 def run_stats(days=30, db_path=None):
-    telemetry_db.ingest(db_path, quiet=True)
+    telemetry_db.ingest(db_path, extra_dirs=_team_dirs(), quiet=True)
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(
         timespec="seconds"
     )

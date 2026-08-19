@@ -38,6 +38,10 @@ def main(argv=None):
     stats = sub.add_parser("stats", help="Usage and snippet telemetry, with promotion candidates")
     stats.add_argument("--days", type=int, default=30)
 
+    report = sub.add_parser("report", help="Copy local telemetry to the team drop folder")
+    report.add_argument("--to", dest="report_to", metavar="DIR",
+                        help="Set (and remember) the team folder: a synced SharePoint/OneDrive folder or UNC path")
+
     ingest = sub.add_parser("ingest", help="Load JSONL telemetry into the SQLite db (idempotent)")
     ingest.add_argument("--from", dest="extra_dirs", action="append", default=[],
                         metavar="DIR", help="Extra telemetry dir to merge (repeatable), e.g. a coworker's copied revit-mcp folder")
@@ -70,6 +74,13 @@ def main(argv=None):
         from .telemetry_db import ingest
         ingest(args.db_path, args.extra_dirs)
         return 0
+    if args.cmd == "report":
+        from . import local_config
+        from .report import run_report
+        if args.report_to:
+            local_config.save(report_dir=args.report_to)
+            print(f"Team telemetry folder saved: {args.report_to}")
+        return run_report()
     if args.cmd == "promote":
         from .promote import run_promote
         return run_promote(args)

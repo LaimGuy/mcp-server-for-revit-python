@@ -30,10 +30,12 @@ def _enabled():
 
 
 def _log_path(now):
-    root = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    return os.path.join(
-        root, "revit-mcp", "usage", "usage-{:%Y%m}.jsonl".format(now)
-    )
+    from .paths import data_root
+
+    root = data_root()
+    if root is None:
+        return None  # no resolvable home: skip logging, never write relative
+    return os.path.join(root, "usage", "usage-{:%Y%m}.jsonl".format(now))
 
 
 def classify_result(result):
@@ -76,6 +78,8 @@ def log_usage(tool_name, kwargs, ok, duration_s, error_type=None, route_ok=None)
         if error_type:
             record["error_type"] = error_type
         path = _log_path(now)
+        if path is None:
+            return
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")

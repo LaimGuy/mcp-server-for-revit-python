@@ -119,13 +119,36 @@ class TestCaptureWiring:
         )
         wire_codex(assume_yes=True, capture=True)
         text = cfg.read_text(encoding="utf-8")
-        assert 'env = { "REVIT_MCP_SNIPPET_LOG" = "1" }' in text
+        assert '"REVIT_MCP_SNIPPET_LOG" = "1"' in text
+        # Codex passes servers ONLY the listed env; LOCALAPPDATA must ride along
+        assert '"LOCALAPPDATA"' in text
         # the user's per-tool approval survived (a full replace would drop it)
         assert "[mcp_servers.revit.tools.execute_revit_code]" in text
         # env landed inside the base table, before the sub-table
         assert text.index("REVIT_MCP_SNIPPET_LOG") < text.index("revit.tools")
 
-    def test_wire_codex_idempotent_when_env_present(self, tmp_path, monkeypatch):
+    def test_wire_codex_upgrades_stale_env_line(self, tmp_path, monkeypatch):
+        # A pre-0.7.1 env line (capture only, no LOCALAPPDATA) gets replaced
+        # in place, preserving everything else.
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        cfg = tmp_path / ".codex" / "config.toml"
+        cfg.parent.mkdir()
+        cfg.write_text(
+            "[mcp_servers.revit]\n"
+            'command = "uvx"\n'
+            'args = ["--from", "x", "revit-mcp"]\n'
+            'env = { "REVIT_MCP_SNIPPET_LOG" = "1" }\n',
+            encoding="utf-8",
+        )
+        wire_codex(assume_yes=True, capture=True)
+        text = cfg.read_text(encoding="utf-8")
+        assert text.count("env =") == 1
+        assert '"LOCALAPPDATA"' in text
+
+    def test_wire_codex_idempotent_when_env_current(self, tmp_path, monkeypatch):
+        from revit_mcp_server.installer import _codex_env_line
+
         monkeypatch.setenv("USERPROFILE", str(tmp_path))
         monkeypatch.setenv("HOME", str(tmp_path))
         cfg = tmp_path / ".codex" / "config.toml"
@@ -134,7 +157,7 @@ class TestCaptureWiring:
             "[mcp_servers.revit]\n"
             'command = "uvx"\n'
             'args = ["--from", "x", "revit-mcp"]\n'
-            'env = { "REVIT_MCP_SNIPPET_LOG" = "1" }\n'
+            + _codex_env_line(True) + "\n"
         )
         cfg.write_text(original, encoding="utf-8")
         wire_codex(assume_yes=True, capture=True)

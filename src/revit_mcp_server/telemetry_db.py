@@ -59,9 +59,14 @@ CREATE INDEX IF NOT EXISTS idx_snippets_ts ON snippets(ts);
 
 
 def data_root():
-    return os.path.join(
-        os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "revit-mcp"
-    )
+    from .paths import data_root as _resolve
+
+    root = _resolve()
+    if root is None:
+        raise RuntimeError(
+            "cannot resolve a local data directory (no LOCALAPPDATA/USERPROFILE)"
+        )
+    return root
 
 
 def default_db_path():

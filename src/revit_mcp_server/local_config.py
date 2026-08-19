@@ -10,8 +10,14 @@ import os
 
 
 def _path():
-    root = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    return os.path.join(root, "revit-mcp", "config.json")
+    from .paths import data_root
+
+    root = data_root()
+    if root is None:
+        raise RuntimeError(
+            "cannot resolve a local data directory (no LOCALAPPDATA/USERPROFILE)"
+        )
+    return os.path.join(root, "config.json")
 
 
 def load():
@@ -19,7 +25,7 @@ def load():
         with open(_path(), "r", encoding="utf-8") as f:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
-    except (OSError, ValueError):
+    except (OSError, ValueError, RuntimeError):
         return {}
 
 

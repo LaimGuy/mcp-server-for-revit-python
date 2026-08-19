@@ -66,10 +66,12 @@ def classify_route_response(response):
 
 
 def _log_path(now):
-    root = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    return os.path.join(
-        root, "revit-mcp", "snippets", "snippets-{:%Y%m}.jsonl".format(now)
-    )
+    from .paths import data_root
+
+    root = data_root()
+    if root is None:
+        return None  # no resolvable home: skip logging, never write relative
+    return os.path.join(root, "snippets", "snippets-{:%Y%m}.jsonl".format(now))
 
 
 def log_snippet(code, description, response, duration_s):
@@ -93,6 +95,8 @@ def log_snippet(code, description, response, duration_s):
             "output_chars": len(output),
         }
         path = _log_path(now)
+        if path is None:
+            return
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record) + "\n")

@@ -268,8 +268,18 @@ def _remove_toml_table(lines, name):
     return out
 
 
-def _codex_env_line():
-    return 'env = {{ "{}" = "1" }}'.format(CAPTURE_ENV)
+def _codex_env_line(capture=True):
+    """Codex passes MCP servers ONLY the env vars listed here — without
+    LOCALAPPDATA the server cannot resolve its telemetry directory (the
+    known-folder fallback covers it since 0.7.1, but being explicit keeps
+    older cached builds working too)."""
+    local = (os.environ.get("LOCALAPPDATA") or "").replace("\\", "\\\\")
+    parts = []
+    if capture:
+        parts.append('"{}" = "1"'.format(CAPTURE_ENV))
+    if local:
+        parts.append('"LOCALAPPDATA" = "{}"'.format(local))
+    return "env = {{ {} }}".format(", ".join(parts)) if parts else ""
 
 
 def _codex_toml_snippet(capture=False):
@@ -279,8 +289,9 @@ def _codex_toml_snippet(capture=False):
         f'command = "{uvx}"\n'
         f'args = ["--from", "{SOURCE_URL}", "revit-mcp"]\n'
     )
-    if capture:
-        snippet += _codex_env_line() + "\n"
+    env_line = _codex_env_line(capture)
+    if env_line:
+        snippet += env_line + "\n"
     return snippet
 
 
@@ -304,20 +315,30 @@ def wire_codex(assume_yes, capture=False):
 
     current_ok = _toml_table_present(lines, "mcp_servers.revit")
     if current_ok and not _toml_table_present(lines, "mcp_servers.revitmcp"):
-        # Entry exists. Upgrade in place if capture wiring is the only gap —
-        # a full replace would discard the user's per-tool approval
-        # sub-tables, which survive an env insertion.
-        if capture and not _codex_revit_has_env(lines):
-            if _confirm("Enable snippet capture in the existing Codex entry?", assume_yes):
-                start, end = _section_bounds(lines, "mcp_servers.revit")
-                insert_at = end
-                for i in range(start + 1, end):
-                    if lines[i].strip().startswith("args"):
-                        insert_at = i + 1
-                        break
-                lines.insert(insert_at, _codex_env_line())
+        # Entry exists. Upgrade the env line in place when it's missing or
+        # stale — a full replace would discard the user's per-tool approval
+        # sub-tables, which survive an env-line edit.
+        desired = _codex_env_line(capture or _codex_revit_has_env(lines))
+        start, end = _section_bounds(lines, "mcp_servers.revit")
+        env_at = None
+        for i in range(start + 1, end):
+            if lines[i].strip().startswith("env "):
+                env_at = i
+                break
+        if desired and (env_at is None or lines[env_at].strip() != desired):
+            what = "Enable snippet capture" if env_at is None else "Update the server environment"
+            if _confirm(f"{what} in the existing Codex entry?", assume_yes):
+                if env_at is not None:
+                    lines[env_at] = desired
+                else:
+                    insert_at = end
+                    for i in range(start + 1, end):
+                        if lines[i].strip().startswith("args"):
+                            insert_at = i + 1
+                            break
+                    lines.insert(insert_at, desired)
                 _write_ini_lines(config_path, lines)
-                print("  Codex: snippet capture enabled on existing entry.")
+                print("  Codex: server environment updated on existing entry.")
         else:
             print("  Codex: [mcp_servers.revit] already configured.")
         return

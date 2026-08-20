@@ -42,6 +42,13 @@ def main(argv=None):
     report.add_argument("--to", dest="report_to", metavar="DIR",
                         help="Set (and remember) the team folder: a synced SharePoint/OneDrive folder or UNC path")
 
+    push_sql = sub.add_parser("push-sql", help="Mirror the telemetry db to a SQL Server (LocalDB or cloud)")
+    push_sql.add_argument("--localdb", action="store_true",
+                          help="Target the machine-local SQL Server LocalDB (and remember it)")
+    push_sql.add_argument("--conn", metavar="ODBC_CONN",
+                          help="Set (and remember) the ODBC connection string, e.g. an Azure SQL database")
+    push_sql.add_argument("--db", dest="db_path", help="SQLite database path override")
+
     ingest = sub.add_parser("ingest", help="Load JSONL telemetry into the SQLite db (idempotent)")
     ingest.add_argument("--from", dest="extra_dirs", action="append", default=[],
                         metavar="DIR", help="Extra telemetry dir to merge (repeatable), e.g. a coworker's copied revit-mcp folder")
@@ -74,13 +81,26 @@ def main(argv=None):
         from .telemetry_db import ingest
         ingest(args.db_path, args.extra_dirs)
         return 0
+    if args.cmd == "push-sql":
+        from .sql_push import run_push_sql
+        return run_push_sql(args)
     if args.cmd == "report":
         from . import local_config
         from .report import run_report
         if args.report_to:
             local_config.save(report_dir=args.report_to)
             print(f"Team telemetry folder saved: {args.report_to}")
-        return run_report()
+        code = run_report()
+        # Chain the SQL mirror when one is configured, so the daily report
+        # task keeps the server current too. Fails soft: a down server must
+        # never break the file push.
+        if local_config.load().get("sql_connection"):
+            try:
+                from .sql_push import push
+                push()
+            except Exception as e:
+                print(f"push-sql skipped: {e}")
+        return code
     if args.cmd == "promote":
         from .promote import run_promote
         return run_promote(args)

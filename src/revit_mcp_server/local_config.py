@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """Per-machine settings: %LOCALAPPDATA%/revit-mcp/config.json.
 
-Currently one key: report_dir — the team telemetry drop folder (a synced
-SharePoint/OneDrive library or a UNC share). Kept out of the public repo on
-purpose: internal paths are configured per machine, never published.
+Keys: report_dir — the team telemetry drop folder (a synced
+SharePoint/OneDrive library or a UNC share); snippet_capture — the
+Revit-side capture switch (read per call by the extension);
+sql_connection — ODBC string for the optional SQL Server mirror
+(see sql_push.py). All kept out of the public repo on purpose: internal
+paths and connection strings are configured per machine, never published.
 """
 import json
 import os

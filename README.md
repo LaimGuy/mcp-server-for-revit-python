@@ -105,6 +105,19 @@ machine runs `revit-mcp stats` and sees candidates ranked by how many people
 converged on the same snippet. Data never leaves company storage; the SQLite
 db is derived locally and never shared.
 
+## SQL Server mirror (optional)
+
+`revit-mcp push-sql` mirrors the telemetry database — every ingested source,
+not just the local user — to a SQL Server, so the team picture is queryable
+with real T-SQL. `--localdb` targets the machine-local SQL Server LocalDB
+(ships with Visual Studio and many Autodesk products; ideal for testing);
+`--conn "<odbc string>"` targets a real server such as an Azure SQL database
+in the company tenant — the code is identical, only the connection string
+changes. The connection string is remembered in the machine-local config,
+never in this repo, and once set the daily report task keeps the server
+current automatically. The target must be company-controlled: snippet rows
+contain real model code.
+
 ## Manual client configuration
 
 `revit-mcp install` does this for you; for reference:

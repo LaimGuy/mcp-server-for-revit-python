@@ -131,6 +131,15 @@ schema changes involved.
 
 Schema changes are additive; `meta.db_version` bumps on breaking changes.
 
+SQL Server mirror (added in 0.9.0): `revit-mcp push-sql` mirrors the SQLite
+db to a SQL Server (`dbo.[usage]` / `dbo.snippets`, same columns plus a
+parsed `ts` DATETIMEOFFSET alongside `ts_raw`; `line_hash` stays the primary
+key, inserts anti-join against it so pushes are idempotent). The mirror is a
+third derived hop — JSONL remains the only write path. The ODBC connection
+string is per-machine config (`sql_connection` in config.json), never a repo
+constant, and the target server must be company-controlled because snippet
+rows contain model code.
+
 Team drop layout (v1): `<team folder>/<username>/{usage,snippets}/*.jsonl`,
 written only by `revit-mcp report` on each user's machine (mirror copy, each
 user owns exactly their folder). The team folder path is per-machine config

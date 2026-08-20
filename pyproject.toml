@@ -1,6 +1,6 @@
 [project]
 name = "revit-mcp"
-version = "0.8.0"
+version = "0.9.0"
 description = "MCP server for Autodesk Revit via pyRevit Routes, with a one-command installer"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -8,6 +8,9 @@ dependencies = [
     # >=2: uses mcp.server.mcpserver (MCPServer); 1.x's mcp.server.fastmcp is gone
     "mcp[cli]>=2.0.0,<3",
     "httpx>=0.27",
+    # SQL Server mirror (push-sql). Windows wheels exist for all supported
+    # Pythons; imported lazily so everything else works without a driver.
+    "pyodbc>=5",
 ]
 
 [project.scripts]
@@ -31,6 +34,10 @@ packages = ["src/revit_mcp_server"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Integration tests drive a LIVE Revit — including opening and closing
+# documents. They must never run implicitly (a plain `pytest` while someone
+# has a model open would close it): opt in with `pytest -m integration`.
+addopts = "-m 'not integration'"
 markers = [
     "integration: tests that require a running Revit instance (slow)",
 ]
